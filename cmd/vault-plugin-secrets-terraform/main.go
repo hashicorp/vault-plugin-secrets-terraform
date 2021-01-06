@@ -4,9 +4,9 @@ import (
 	"os"
 
 	"github.com/hashicorp/go-hclog"
+	tf "github.com/hashicorp/vault-plugin-secrets-terraform"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/plugin"
-	tf "github.com/joatmon08/vault-plugin-secrets-terraform"
 )
 
 func main() {
