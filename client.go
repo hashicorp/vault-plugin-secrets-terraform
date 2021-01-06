@@ -1,4 +1,4 @@
-package tfsecrets
+package tfc
 
 import (
 	"errors"
@@ -14,18 +14,6 @@ type terraformToken struct {
 	ID          string `json:"id"`
 	Description string `json:"description"`
 	Token       string `json:"token"`
-}
-
-func (t *terraformToken) translateOrganizationToken(token *tfe.OrganizationToken) {
-	t.ID = token.ID
-	t.Description = token.Description
-	t.Token = token.Token
-}
-
-func (t *terraformToken) translateTeamToken(token *tfe.TeamToken) {
-	t.ID = token.ID
-	t.Description = token.Description
-	t.Token = token.Token
 }
 
 func newClient(config *tfConfig) (*client, error) {

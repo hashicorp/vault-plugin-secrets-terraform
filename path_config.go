@@ -1,10 +1,10 @@
-package tfsecrets
+package tfc
 
 import (
 	"context"
 	"errors"
+	"fmt"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -68,7 +68,7 @@ func pathConfig(b *tfBackend) *framework.Path {
 func (b *tfBackend) pathConfigExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
 	out, err := req.Storage.Get(ctx, req.Path)
 	if err != nil {
-		return false, errwrap.Wrapf("existence check failed: {{err}}", err)
+		return false, fmt.Errorf("existence check failed: %w", err)
 	}
 
 	return out != nil, nil
@@ -113,7 +113,6 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 	}
 
 	entry, err := logical.StorageEntryJSON(configStoragePath, config)
-
 	if err != nil {
 		return nil, err
 	}
@@ -122,6 +121,7 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		return nil, err
 	}
 
+	// TODO: Why is this called, which resets the client?
 	b.reset()
 
 	return nil, nil
@@ -149,7 +149,7 @@ func getConfig(ctx context.Context, s logical.Storage) (*tfConfig, error) {
 
 	config := new(tfConfig)
 	if err := entry.DecodeJSON(&config); err != nil {
-		return nil, errwrap.Wrapf("error reading root configuration: {{err}}", err)
+		return nil, fmt.Errorf("error reading root configuration: %w", err)
 	}
 
 	// return the config, we are done
