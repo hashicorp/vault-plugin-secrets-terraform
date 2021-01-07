@@ -3,7 +3,6 @@ package tfc
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -65,15 +64,6 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	walID, err := framework.PutWAL(ctx, s, terraformTokenType, &walEntry{
-		Organization: roleEntry.Organization,
-		TeamID:       roleEntry.TeamID,
-		Expiration:   time.Now().Add(maxWALAge),
-	})
-	if err != nil {
-		return nil, errwrap.Wrapf("error writing WAL entry: {{err}}", err)
-	}
-
 	var token *terraformToken
 
 	switch {
@@ -89,10 +79,6 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName
 
 	if token == nil {
 		return nil, errors.New("error creating Terraform token")
-	}
-
-	if err := framework.DeleteWAL(ctx, s, walID); err != nil {
-		return nil, errwrap.Wrapf("error deleting WAL: {{err}}", err)
 	}
 
 	resp := b.Secret(terraformTokenType).Response(map[string]interface{}{

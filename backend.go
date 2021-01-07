@@ -50,10 +50,8 @@ func backend() *tfBackend {
 		Secrets: []*framework.Secret{
 			b.terraformToken(),
 		},
-		BackendType:       logical.TypeLogical,
-		Invalidate:        b.invalidate,
-		WALRollback:       b.walRollback,
-		WALRollbackMinAge: minUserRollbackAge,
+		BackendType: logical.TypeLogical,
+		Invalidate:  b.invalidate,
 	}
 
 	return &b
