@@ -1,4 +1,4 @@
-package tfsecrets
+package tfc
 
 import (
 	"context"
