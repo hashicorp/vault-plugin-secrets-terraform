@@ -1,5 +1,7 @@
+GO_CMD?=go
+CGO_ENABLED?=0
 TOOL?=vault-plugin-secrets-terraform
-TEST?=$$(go list ./... | grep -v /vendor/)
+TEST?=$$($(GO_CMD) list ./... | grep -v /vendor/ | grep -v /integ)
 EXTERNAL_TOOLS=\
 	github.com/mitchellh/gox
 BUILD_TAGS?=${TOOL}
@@ -24,13 +26,21 @@ testcompile: generate
 		go test -v -c -tags='$(BUILD_TAGS)' $$pkg -parallel=4 ; \
 	done
 
-# test runs all tests
+# test runs the unit tests and vets the code
 test: generate
 	@if [ "$(TEST)" = "./..." ]; then \
 		echo "ERROR: Set TEST to a specific package"; \
 		exit 1; \
 	fi
-	VAULT_ACC=1 go test -tags='$(BUILD_TAGS)' $(TEST) -v $(TESTARGS) -timeout 10m
+	CGO_ENABLED=0 VAULT_TOKEN= VAULT_ACC= go test -v -tags='$(BUILD_TAGS)' $(TEST) $(TESTARGS) -count=1 -timeout=10m -parallel=4
+
+# testacc runs acceptance tests
+testacc:
+	@if [ "$(TEST)" = "./..." ]; then \
+		echo "ERROR: Set TEST to a specific package"; \
+		exit 1; \
+	fi
+	CGO_ENABLED=0 VAULT_ACC=1 VAULT_TOKEN= $(GO_CMD) test -tags='$(BUILD_TAGS)' $(TEST) -v $(TESTARGS) -timeout=10m
 
 # generate runs `go generate` to build the dynamically generated
 # source files.
