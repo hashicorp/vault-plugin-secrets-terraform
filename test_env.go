@@ -70,6 +70,18 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 	assert.NotEmpty(t, resp.Data["token"])
 
 	e.MostRecentSecret = resp.Secret
+
+	// verify there is a token
+	b := e.Backend.(*tfBackend)
+	client, err := b.getClient(context.Background(), e.Storage)
+	if err != nil {
+		t.Fatal("fatal getting client")
+	}
+	ot, err := client.OrganizationTokens.Read(e.Context, e.Organization)
+	if err != nil {
+		t.Fatalf("unexpected error reading organization token: %s", err)
+	}
+	assert.NotNil(t, ot)
 }
 
 func (e *testEnv) RenewOrgToken(t *testing.T) {
@@ -99,6 +111,16 @@ func (e *testEnv) RevokeOrgToken(t *testing.T) {
 	resp, err := e.Backend.HandleRequest(e.Context, req)
 	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
 	assert.Nil(t, resp)
+	// verify there is no token
+	b := e.Backend.(*tfBackend)
+	client, err := b.getClient(context.Background(), e.Storage)
+	if err != nil {
+		t.Fatal("fatal getting client")
+	}
+	_, err = client.OrganizationTokens.Read(e.Context, e.Organization)
+	if err == nil {
+		t.Fatalf("expected error finding token, but no error returned")
+	}
 }
 
 func (e *testEnv) AddTeamTokenRole(t *testing.T) {
@@ -126,6 +148,17 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.NotEmpty(t, resp.Data["token"])
 
+	// verify there is a token
+	b := e.Backend.(*tfBackend)
+	client, err := b.getClient(context.Background(), e.Storage)
+	if err != nil {
+		t.Fatal("fatal getting client")
+	}
+	tt, err := client.TeamTokens.Read(e.Context, e.TeamID)
+	if err != nil {
+		t.Fatalf("unexpected error reading team token: %s", err)
+	}
+	assert.NotNil(t, tt)
 	e.MostRecentSecret = resp.Secret
 }
 
@@ -156,4 +189,15 @@ func (e *testEnv) RevokeTeamToken(t *testing.T) {
 	resp, err := e.Backend.HandleRequest(e.Context, req)
 	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
 	assert.Nil(t, resp)
+
+	// verify there is no token
+	b := e.Backend.(*tfBackend)
+	client, err := b.getClient(context.Background(), e.Storage)
+	if err != nil {
+		t.Fatal("fatal getting client")
+	}
+	_, err = client.TeamTokens.Read(e.Context, e.TeamID)
+	if err == nil {
+		t.Fatalf("expected error finding token, but no error returned")
+	}
 }

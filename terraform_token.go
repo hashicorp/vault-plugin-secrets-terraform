@@ -77,14 +77,19 @@ func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformT
 }
 
 func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	tokenIDRaw, ok := req.Secret.InternalData["token_id"]
-	if !ok {
-		return nil, fmt.Errorf("secret is missing token id internal data")
+	client, err := b.getClient(ctx, req.Storage)
+	if err != nil {
+		return nil, errwrap.Wrapf("error getting client: {{err}}", err)
 	}
 
-	tokenID, ok := tokenIDRaw.(string)
-	if !ok {
-		return nil, fmt.Errorf("secret is missing token id internal data")
+	teamID := ""
+	teamIDRaw, ok := req.Secret.InternalData["team_id"]
+	if ok {
+		teamID, ok = teamIDRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("secret is missing team_id internal data")
+		}
+
 	}
 
 	organization := ""
@@ -96,24 +101,21 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 		}
 	}
 
-	teamID := ""
-	teamIDRaw, ok := req.Secret.InternalData["team_id"]
-	if ok {
-		teamID, ok = teamIDRaw.(string)
-		if !ok {
-			return nil, fmt.Errorf("secret is missing team_id internal data")
+	if isOrgToken(organization, teamID) {
+		// revoke org API token
+		if err := client.OrganizationTokens.Delete(ctx, organization); err != nil {
+			return nil, errwrap.Wrapf("error revoking organization token: {{err}}", err)
 		}
+		return nil, nil
+	}
+	if isTeamToken(organization, teamID) {
+		// revoke team API token
+		if err := client.TeamTokens.Delete(ctx, teamID); err != nil {
+			return nil, errwrap.Wrapf("error revoking team token: {{err}}", err)
+		}
+		return nil, nil
 	}
 
-	var data = map[string]interface{}{
-		"organization": organization,
-		"token_id":     tokenID,
-		"team_id":      teamID,
-	}
-
-	if err := b.walRollback(ctx, req, terraformTokenType, data); err != nil {
-		return nil, err
-	}
 	return nil, nil
 }
 
