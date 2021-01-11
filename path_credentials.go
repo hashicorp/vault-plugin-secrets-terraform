@@ -107,7 +107,7 @@ func (b *tfBackend) credentialRead(ctx context.Context, s logical.Storage, roleN
 		return nil, errors.New("missing role name")
 	}
 
-	entry, err := s.Get(ctx, "roles/"+roleName)
+	entry, err := s.Get(ctx, "role/"+roleName)
 	if err != nil {
 		return nil, err
 	}

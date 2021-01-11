@@ -38,6 +38,7 @@ func backend() *tfBackend {
 			},
 			SealWrapStorage: []string{
 				"config",
+				"role/*",
 			},
 		},
 		Paths: framework.PathAppend(

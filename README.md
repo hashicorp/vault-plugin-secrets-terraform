@@ -25,13 +25,13 @@ for Terraform Cloud or Enterprise.
 
    1. To create an organization token, create a Vault role with the Terraform organization.
       ```shell
-      vault write terraform/roles/my-org organization=$TF_ORGANIZATION
+      vault write terraform/role/my-org organization=$TF_ORGANIZATION
       ```
 
    1. To create a team token, create a Vault role with the Terraform organization and
       ID of the team (find using the `settings/teams/team-xxxxxxxxxx` URL).
       ```shell
-      vault write terraform/roles/my-team organization=$TF_ORGANIZATION team_id=$TF_TEAM_ID
+      vault write terraform/role/my-team organization=$TF_ORGANIZATION team_id=$TF_TEAM_ID
       ```
 
 1. To read the token, access the `creds` endpoint.

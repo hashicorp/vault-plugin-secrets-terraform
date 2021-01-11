@@ -48,7 +48,7 @@ func (e *testEnv) AddConfig(t *testing.T) {
 func (e *testEnv) AddOrgTokenRole(t *testing.T) {
 	req := &logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      "roles/test-org-token",
+		Path:      "role/test-org-token",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
 			"organization": e.Organization,
@@ -126,7 +126,7 @@ func (e *testEnv) RevokeOrgToken(t *testing.T) {
 func (e *testEnv) AddTeamTokenRole(t *testing.T) {
 	req := &logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      "roles/test-team-token",
+		Path:      "role/test-team-token",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
 			"organization": e.Organization,

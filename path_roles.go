@@ -32,7 +32,7 @@ func (r terraformRoleEntry) toResponseData() map[string]interface{} {
 func pathRole(b *tfBackend) []*framework.Path {
 	return []*framework.Path{
 		{
-			Pattern: "roles/" + framework.GenericNameRegex("name"),
+			Pattern: "role/" + framework.GenericNameRegex("name"),
 			Fields: map[string]*framework.FieldSchema{
 				"name": {
 					Type:        framework.TypeLowerCaseString,
@@ -75,7 +75,7 @@ func pathRole(b *tfBackend) []*framework.Path {
 			HelpDescription: pathRoleHelpDescription,
 		},
 		{
-			Pattern: "roles/?$",
+			Pattern: "role/?$",
 
 			Operations: map[logical.Operation]framework.OperationHandler{
 				logical.ListOperation: &framework.PathOperation{
@@ -90,7 +90,7 @@ func pathRole(b *tfBackend) []*framework.Path {
 }
 
 func (b *tfBackend) pathRolesList(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	entries, err := req.Storage.List(ctx, "roles/")
+	entries, err := req.Storage.List(ctx, "role/")
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 }
 
 func (b *tfBackend) pathRolesDelete(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	err := req.Storage.Delete(ctx, "roles/"+d.Get("name").(string))
+	err := req.Storage.Delete(ctx, "role/"+d.Get("name").(string))
 	if err != nil {
 		return nil, errwrap.Wrapf("error deleting terraform role: {{err}}", err)
 	}
@@ -184,7 +184,7 @@ func (b *tfBackend) pathRolesDelete(ctx context.Context, req *logical.Request, d
 }
 
 func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleEntry *terraformRoleEntry) error {
-	entry, err := logical.StorageEntryJSON("roles/"+name, roleEntry)
+	entry, err := logical.StorageEntryJSON("role/"+name, roleEntry)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleE
 }
 
 func saveRole(ctx context.Context, s logical.Storage, c *terraformRoleEntry, name string) error {
-	entry, err := logical.StorageEntryJSON("roles/"+name, c)
+	entry, err := logical.StorageEntryJSON("role/"+name, c)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func getRole(ctx context.Context, s logical.Storage, name string) (*terraformRol
 		return nil, errwrap.Wrapf("missing role name", nil)
 	}
 
-	entry, err := s.Get(ctx, "roles/"+name)
+	entry, err := s.Get(ctx, "role/"+name)
 	if err != nil {
 		return nil, err
 	}

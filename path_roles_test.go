@@ -91,7 +91,7 @@ func testTokenRoleCreate(t *testing.T, b *tfBackend, s logical.Storage, name str
 	t.Helper()
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.CreateOperation,
-		Path:      "roles/" + name,
+		Path:      "role/" + name,
 		Data:      d,
 		Storage:   s,
 	})
@@ -110,7 +110,7 @@ func testTokenRoleUpdate(t *testing.T, b *tfBackend, s logical.Storage, d map[st
 	t.Helper()
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      "roles/" + roleName,
+		Path:      "role/" + roleName,
 		Data:      d,
 		Storage:   s,
 	})
@@ -130,7 +130,7 @@ func testTokenRoleRead(t *testing.T, b *tfBackend, s logical.Storage) (*logical.
 	t.Helper()
 	return b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.ReadOperation,
-		Path:      "roles/" + roleName,
+		Path:      "role/" + roleName,
 		Storage:   s,
 	})
 }
@@ -140,7 +140,7 @@ func testTokenRoleList(t *testing.T, b *tfBackend, s logical.Storage) (*logical.
 	t.Helper()
 	return b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.ListOperation,
-		Path:      "roles/",
+		Path:      "role/",
 		Storage:   s,
 	})
 }
@@ -150,7 +150,7 @@ func testTokenRoleDelete(t *testing.T, b *tfBackend, s logical.Storage) (*logica
 	t.Helper()
 	return b.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.DeleteOperation,
-		Path:      "roles/" + roleName,
+		Path:      "role/" + roleName,
 		Storage:   s,
 	})
 }
