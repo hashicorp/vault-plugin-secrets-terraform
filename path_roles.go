@@ -12,10 +12,14 @@ import (
 // terraformRoleEntry is a Vault role construct that maps to TFC/TFE
 type terraformRoleEntry struct {
 	Name         string        `json:"name"`
-	Organization string        `json:"organization"`
-	TeamID       string        `json:"team_id"`
+	Organization string        `json:"organization,omitempty"`
+	TeamID       string        `json:"team_id,omitempty"`
+	UserID       string        `json:"user_id,omitempty"`
 	TTL          time.Duration `json:"ttl"`
 	MaxTTL       time.Duration `json:"max_ttl"`
+	// team and organization's have their token stored with them. Intentionally
+	// not exported at this time
+	token string
 }
 
 func (r terraformRoleEntry) toResponseData() map[string]interface{} {

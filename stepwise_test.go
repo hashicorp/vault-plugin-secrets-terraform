@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/testing/stepwise"
 	dockerEnvironment "github.com/hashicorp/vault/sdk/testing/stepwise/environments/docker"
+	"github.com/ryboe/q"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,6 +26,7 @@ func TestAccOrganizationToken(t *testing.T) {
 
 	roleName := "vault-stepwise-role"
 	orgName := os.Getenv(envVarTerraformOrganization)
+	cred := new(string)
 	stepwise.Run(t, stepwise.Case{
 		Precheck:    func() { testAccPreCheck(t) },
 		Environment: dockerEnvironment.NewEnvironment("tfc", envOptions),
@@ -32,7 +34,8 @@ func TestAccOrganizationToken(t *testing.T) {
 			testAccConfig(t),
 			testAccOrganizationRole(t, roleName, orgName),
 			testAccOrganizationRoleRead(t, roleName, orgName),
-			// testAccRead(t, "creds", roleName, []credentialTestFunc{listDynamoTablesTest}),
+			testAccOrganizationCredRead(t, roleName, cred),
+			testAccOrganizationCredReRead(t, roleName, cred),
 		},
 	})
 }
@@ -88,6 +91,38 @@ func testAccOrganizationRoleRead(t *testing.T, roleName, orgName string) stepwis
 		Assert: func(resp *api.Secret, err error) error {
 			assert.NotNil(t, resp)
 			assert.Equal(t, orgName, resp.Data["organization"])
+			return nil
+		},
+	}
+}
+
+func testAccOrganizationCredRead(t *testing.T, roleName string, orgToken *string) stepwise.Step {
+	return stepwise.Step{
+		Operation: stepwise.ReadOperation,
+		Path:      "creds/" + roleName,
+		Assert: func(resp *api.Secret, err error) error {
+			assert.NotNil(t, resp)
+			assert.NotEmpty(t, resp.Data["token"])
+			*orgToken = resp.Data["token"].(string)
+			return nil
+		},
+	}
+}
+
+func testAccOrganizationCredReRead(t *testing.T, roleName string, orgToken *string) stepwise.Step {
+	return stepwise.Step{
+		Operation: stepwise.ReadOperation,
+		Path:      "creds/" + roleName,
+		Assert: func(resp *api.Secret, err error) error {
+			q.Q("token at start of assert:", orgToken)
+			assert.NotNil(t, resp)
+			q.Q("resp token:", resp.Data["token"])
+			assert.NotEmpty(t, resp.Data["token"])
+			if *orgToken != "" {
+				assert.Equal(t, *orgToken, resp.Data["token"].(string))
+			} else {
+				t.Fatal("expected orgToken to have a value")
+			}
 			return nil
 		},
 	}
