@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/ryboe/q"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -69,7 +68,6 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
 	assert.NotNil(t, resp)
 	assert.NotEmpty(t, resp.Data["token"])
-	q.Q("Org token read:", resp)
 
 	e.MostRecentSecret = resp.Secret
 
