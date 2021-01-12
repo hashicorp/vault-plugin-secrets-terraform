@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/ryboe/q"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -68,6 +69,7 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
 	assert.NotNil(t, resp)
 	assert.NotEmpty(t, resp.Data["token"])
+	q.Q("Org token read:", resp)
 
 	e.MostRecentSecret = resp.Secret
 
@@ -82,45 +84,6 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 		t.Fatalf("unexpected error reading organization token: %s", err)
 	}
 	assert.NotNil(t, ot)
-}
-
-func (e *testEnv) RenewOrgToken(t *testing.T) {
-	req := &logical.Request{
-		Operation: logical.RenewOperation,
-		Storage:   e.Storage,
-		Secret:    e.MostRecentSecret,
-		Data: map[string]interface{}{
-			"lease_id": "foo",
-		},
-	}
-	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-	assert.NotNil(t, resp)
-	assert.Equal(t, e.MostRecentSecret, resp.Secret)
-}
-
-func (e *testEnv) RevokeOrgToken(t *testing.T) {
-	req := &logical.Request{
-		Operation: logical.RevokeOperation,
-		Storage:   e.Storage,
-		Secret:    e.MostRecentSecret,
-		Data: map[string]interface{}{
-			"lease_id": "foo",
-		},
-	}
-	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-	assert.Nil(t, resp)
-	// verify there is no token
-	b := e.Backend.(*tfBackend)
-	client, err := b.getClient(context.Background(), e.Storage)
-	if err != nil {
-		t.Fatal("fatal getting client")
-	}
-	_, err = client.OrganizationTokens.Read(e.Context, e.Organization)
-	if err == nil {
-		t.Fatalf("expected error finding token, but no error returned")
-	}
 }
 
 func (e *testEnv) AddTeamTokenRole(t *testing.T) {
@@ -160,44 +123,4 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 	}
 	assert.NotNil(t, tt)
 	e.MostRecentSecret = resp.Secret
-}
-
-func (e *testEnv) RenewTeamToken(t *testing.T) {
-	req := &logical.Request{
-		Operation: logical.RenewOperation,
-		Storage:   e.Storage,
-		Secret:    e.MostRecentSecret,
-		Data: map[string]interface{}{
-			"lease_id": "foo",
-		},
-	}
-	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-	assert.NotNil(t, resp)
-	assert.Equal(t, e.MostRecentSecret, resp.Secret)
-}
-
-func (e *testEnv) RevokeTeamToken(t *testing.T) {
-	req := &logical.Request{
-		Operation: logical.RevokeOperation,
-		Storage:   e.Storage,
-		Secret:    e.MostRecentSecret,
-		Data: map[string]interface{}{
-			"lease_id": "foo",
-		},
-	}
-	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-	assert.Nil(t, resp)
-
-	// verify there is no token
-	b := e.Backend.(*tfBackend)
-	client, err := b.getClient(context.Background(), e.Storage)
-	if err != nil {
-		t.Fatal("fatal getting client")
-	}
-	_, err = client.TeamTokens.Read(e.Context, e.TeamID)
-	if err == nil {
-		t.Fatalf("expected error finding token, but no error returned")
-	}
 }

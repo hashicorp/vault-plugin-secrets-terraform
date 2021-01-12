@@ -3,12 +3,18 @@ package tfc
 import (
 	"context"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
 	log "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/helper/logging"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/sdk/testing/stepwise"
+	"github.com/ryboe/q"
+
+	dockerEnvironment "github.com/hashicorp/vault/sdk/testing/stepwise/environments/docker"
 )
 
 func newAcceptanceTestEnv() (*testEnv, error) {
@@ -50,8 +56,6 @@ func TestAcceptanceOrganizationToken(t *testing.T) {
 	t.Run("add config", acceptanceTestEnv.AddConfig)
 	t.Run("add organization token role", acceptanceTestEnv.AddOrgTokenRole)
 	t.Run("read organization token cred", acceptanceTestEnv.ReadOrgToken)
-	t.Run("renew organization token cred", acceptanceTestEnv.RenewOrgToken)
-	t.Run("revoke organization token cred", acceptanceTestEnv.RevokeOrgToken)
 }
 
 func TestAcceptanceTeamToken(t *testing.T) {
@@ -67,6 +71,63 @@ func TestAcceptanceTeamToken(t *testing.T) {
 	t.Run("add config", acceptanceTestEnv.AddConfig)
 	t.Run("add team token role", acceptanceTestEnv.AddTeamTokenRole)
 	t.Run("read team token cred", acceptanceTestEnv.ReadTeamToken)
-	t.Run("renew team token cred", acceptanceTestEnv.RenewTeamToken)
-	t.Run("revoke team token cred", acceptanceTestEnv.RevokeTeamToken)
+}
+
+func TestOrganizationToken(t *testing.T) {
+	t.Parallel()
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+	envOptions := &stepwise.MountOptions{
+		RegistryName:    "tfc",
+		PluginType:      stepwise.PluginTypeSecrets,
+		PluginName:      "vault-plugin-secrets-terraform",
+		MountPathPrefix: "tfc",
+	}
+
+	// roleName := "vault-stepwise-role"
+	stepwise.Run(t, stepwise.Case{
+		Precheck:    func() { testAccStepwisePreCheck(t) },
+		Environment: dockerEnvironment.NewEnvironment("tfc", envOptions),
+		Steps: []stepwise.Step{
+			testAccStepwiseConfig(t),
+			// testAccStepwiseOrganizationRole(t, roleName),
+			// testAccStepwiseRead(t, "creds", roleName, []credentialTestFunc{listDynamoTablesTest}),
+		},
+	})
+}
+
+var initSetup sync.Once
+
+func testAccStepwisePreCheck(t *testing.T) {
+	initSetup.Do(func() {
+		if v := os.Getenv("TEST_TF_ADDRESS"); v == "" {
+			t.Skip("TEST_TF_TOKEN not set")
+		}
+
+		// Ensure test variables are set
+		if v := os.Getenv("TEST_TF_TOKEN"); v == "" {
+			t.Skip("TEST_TF_TOKEN not set")
+		}
+	})
+}
+func testAccStepwiseConfig(t *testing.T) stepwise.Step {
+	return stepwise.Step{
+		Operation: stepwise.UpdateOperation,
+		Path:      "config",
+		Data: map[string]interface{}{
+			"token":   os.Getenv("TEST_TF_TOKEN"),
+			"address": os.Getenv("TEST_TF_ADDRESS"),
+		},
+	}
+}
+func testAccStepwiseReadConfig(t *testing.T) stepwise.Step {
+	return stepwise.Step{
+		Operation: stepwise.ReadOperation,
+		Path:      "config",
+		Assert: func(resp *api.Secret, err error) error {
+			q.Q("read config resp:", resp)
+			return nil
+		},
+	}
 }

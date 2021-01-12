@@ -38,7 +38,6 @@ func (b *tfBackend) terraformToken() *framework.Secret {
 				Description: "Terraform Token",
 			},
 		},
-		Renew:  b.terraformTokenRenew,
 		Revoke: b.terraformTokenRevoke,
 	}
 }
@@ -81,25 +80,15 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName
 		return nil, errors.New("error creating Terraform token")
 	}
 
-	resp := b.Secret(terraformTokenType).Response(map[string]interface{}{
-		"token": token.Token,
-	}, map[string]interface{}{
-		"token_id":     token.ID,
-		"organization": roleEntry.Organization,
-		"team_id":      roleEntry.TeamID,
-		"role":         roleName,
-		"description":  token.Description,
-	})
-
-	if roleEntry.TTL > 0 {
-		resp.Secret.TTL = roleEntry.TTL
-	}
-
-	if roleEntry.MaxTTL > 0 {
-		resp.Secret.MaxTTL = roleEntry.MaxTTL
-	}
-
-	return resp, nil
+	return &logical.Response{
+		Data: map[string]interface{}{
+			"token":        token.Token,
+			"organization": roleEntry.Organization,
+			"team_id":      roleEntry.TeamID,
+			"role":         roleName,
+			"description":  token.Description,
+		},
+	}, nil
 }
 
 func (b *tfBackend) credentialRead(ctx context.Context, s logical.Storage, roleName string) (*terraformRoleEntry, error) {
