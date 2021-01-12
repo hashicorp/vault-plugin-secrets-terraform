@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/vault/sdk/helper/logging"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/testing/stepwise"
-	"github.com/ryboe/q"
+	"github.com/stretchr/testify/assert"
 
 	dockerEnvironment "github.com/hashicorp/vault/sdk/testing/stepwise/environments/docker"
 )
@@ -85,13 +85,15 @@ func TestOrganizationToken(t *testing.T) {
 		MountPathPrefix: "tfc",
 	}
 
-	// roleName := "vault-stepwise-role"
+	roleName := "vault-stepwise-role"
+	orgName := os.Getenv(envVarTerraformOrganization)
 	stepwise.Run(t, stepwise.Case{
 		Precheck:    func() { testAccStepwisePreCheck(t) },
 		Environment: dockerEnvironment.NewEnvironment("tfc", envOptions),
 		Steps: []stepwise.Step{
 			testAccStepwiseConfig(t),
-			// testAccStepwiseOrganizationRole(t, roleName),
+			testAccStepwiseOrganizationRole(t, roleName, orgName),
+			testAccStepwiseOrganizationRead(t, roleName),
 			// testAccStepwiseRead(t, "creds", roleName, []credentialTestFunc{listDynamoTablesTest}),
 		},
 	})
@@ -109,6 +111,12 @@ func testAccStepwisePreCheck(t *testing.T) {
 		if v := os.Getenv("TEST_TF_TOKEN"); v == "" {
 			t.Skip("TEST_TF_TOKEN not set")
 		}
+		if v := os.Getenv("TEST_TF_ORGANIZATION"); v == "" {
+			t.Skip("TEST_TF_ORGANIZATION not set")
+		}
+		if v := os.Getenv("TEST_TF_TEAM_ID"); v == "" {
+			t.Skip("TEST_TF_TEAM_ID not set")
+		}
 	})
 }
 func testAccStepwiseConfig(t *testing.T) stepwise.Step {
@@ -121,12 +129,39 @@ func testAccStepwiseConfig(t *testing.T) stepwise.Step {
 		},
 	}
 }
+
 func testAccStepwiseReadConfig(t *testing.T) stepwise.Step {
 	return stepwise.Step{
 		Operation: stepwise.ReadOperation,
 		Path:      "config",
 		Assert: func(resp *api.Secret, err error) error {
-			q.Q("read config resp:", resp)
+			// q.Q("read config resp:", resp)
+			return nil
+		},
+	}
+}
+
+func testAccStepwiseOrganizationRole(t *testing.T, roleName, orgName string) stepwise.Step {
+	return stepwise.Step{
+		Operation: stepwise.UpdateOperation,
+		Path:      "role/" + roleName,
+		Data: map[string]interface{}{
+			"organization": orgName,
+		},
+		Assert: func(resp *api.Secret, err error) error {
+			assert.NotNil(t, resp)
+			return nil
+		},
+	}
+}
+
+func testAccStepwiseOrganizationRead(t *testing.T, roleName string) stepwise.Step {
+	return stepwise.Step{
+		Operation: stepwise.ReadOperation,
+		Path:      "role/" + roleName,
+		Assert: func(resp *api.Secret, err error) error {
+			// q.Q("read role resp:", resp)
+			assert.NotNil(t, resp)
 			return nil
 		},
 	}

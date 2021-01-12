@@ -13,9 +13,9 @@ import (
 
 const (
 	envVarRunAccTests           = "VAULT_ACC"
-	envVarTerraformToken        = "TF_TOKEN"
-	envVarTerraformOrganization = "TF_ORGANIZATION"
-	envVarTerraformTeamID       = "TF_TEAM_ID"
+	envVarTerraformToken        = "TEST_TF_TOKEN"
+	envVarTerraformOrganization = "TEST_TF_ORGANIZATION"
+	envVarTerraformTeamID       = "TEST_TF_TEAM_ID"
 )
 
 var runAcceptanceTests = os.Getenv(envVarRunAccTests) == "1"
