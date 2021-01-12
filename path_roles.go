@@ -17,9 +17,7 @@ type terraformRoleEntry struct {
 	UserID       string        `json:"user_id,omitempty"`
 	TTL          time.Duration `json:"ttl"`
 	MaxTTL       time.Duration `json:"max_ttl"`
-	// team and organization's have their token stored with them. Intentionally
-	// not exported at this time
-	token string
+	Token        string        `json:"token,omitempty"`
 }
 
 func (r terraformRoleEntry) toResponseData() map[string]interface{} {

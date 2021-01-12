@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/testing/stepwise"
 	dockerEnvironment "github.com/hashicorp/vault/sdk/testing/stepwise/environments/docker"
-	"github.com/ryboe/q"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -114,9 +113,7 @@ func testAccOrganizationCredReRead(t *testing.T, roleName string, orgToken *stri
 		Operation: stepwise.ReadOperation,
 		Path:      "creds/" + roleName,
 		Assert: func(resp *api.Secret, err error) error {
-			q.Q("token at start of assert:", orgToken)
 			assert.NotNil(t, resp)
-			q.Q("resp token:", resp.Data["token"])
 			assert.NotEmpty(t, resp.Data["token"])
 			if *orgToken != "" {
 				assert.Equal(t, *orgToken, resp.Data["token"].(string))

@@ -7,7 +7,6 @@ import (
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/ryboe/q"
 )
 
 func pathCredentials(b *tfBackend) *framework.Path {
@@ -59,14 +58,17 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 
 	var token string
 	// if we already have a token, return that
-	if (role.Organization != "" ||
-		role.TeamID != "") &&
-		role.UserID == "" &&
-		role.token != "" {
-		q.Q(">--already have a token")
-		token = role.token
-	} else {
-		q.Q("no token yet, saving")
+	makeToken := true
+	if (role.Organization != "" || role.TeamID != "") && role.UserID == "" {
+		// role.token != "" {
+		if role.Token != "" {
+			makeToken = false
+			token = role.Token
+			// }
+		}
+	}
+
+	if makeToken {
 
 		token, err = b.createToken(ctx, req.Storage, roleName, role)
 		// save token to role
@@ -75,7 +77,7 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 			return nil, err
 		}
 
-		role.token = token
+		role.Token = token
 
 		if err := setTerraformRole(ctx, req.Storage, roleName, role); err != nil {
 			return nil, err
