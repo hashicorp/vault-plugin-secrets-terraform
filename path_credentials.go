@@ -106,7 +106,7 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName
 	switch {
 	case isOrgToken(roleEntry.Organization, roleEntry.TeamID):
 		token, err = createOrgToken(ctx, client, roleEntry.Organization)
-	case isTeamToken(roleEntry.Organization, roleEntry.TeamID):
+	case isTeamToken(roleEntry.TeamID):
 		token, err = createTeamToken(ctx, client, roleEntry.TeamID)
 	}
 

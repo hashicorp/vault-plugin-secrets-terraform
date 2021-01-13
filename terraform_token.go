@@ -18,8 +18,8 @@ func isOrgToken(organization string, team string) bool {
 	return organization != "" && team == ""
 }
 
-func isTeamToken(organization string, team string) bool {
-	return organization != "" && team != ""
+func isTeamToken(team string) bool {
+	return team != ""
 }
 
 func deleteOrgToken(ctx context.Context, c *client, organization string) error {
@@ -108,7 +108,7 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 		}
 		return nil, nil
 	}
-	if isTeamToken(organization, teamID) {
+	if isTeamToken(teamID) {
 		// revoke team API token
 		if err := client.TeamTokens.Delete(ctx, teamID); err != nil {
 			return nil, errwrap.Wrapf("error revoking team token: {{err}}", err)

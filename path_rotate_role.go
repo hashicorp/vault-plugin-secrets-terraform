@@ -32,7 +32,6 @@ func pathRotateRole(b *tfBackend) []*framework.Path {
 	}
 }
 func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	// q.Q("--> should rotate role")
 	var resp logical.Response
 
 	name := d.Get("name").(string)
@@ -49,24 +48,19 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role entry"), nil
 	}
 
-	// q.Q("creating token for:", roleEntry)
 	token, err := b.createToken(ctx, req.Storage, name, roleEntry)
 	// save token to role
 	if err != nil {
-		// q.Q("--> failed to rotate role:", err)
 		// return logical.ErrorResponse(err.Error()), nil
 		return nil, err
 	}
-	// q.Q("--> rotated role", name)
 
 	roleEntry.Token = token
 
 	if err := setTerraformRole(ctx, req.Storage, name, roleEntry); err != nil {
-		// q.Q("--> failed to save updated role:", err)
 		return nil, err
 	}
 
-	// q.Q("--> returning response")
 	return &resp, nil
 }
 
