@@ -123,15 +123,16 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role name"), nil
 	}
 
-	b.lock.Lock()
-	defer b.lock.Unlock()
 	roleEntry, err := getRole(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
 	}
 
+	var createToken bool
 	if roleEntry == nil {
 		roleEntry = &terraformRoleEntry{}
+		// create token
+		createToken = true
 	}
 
 	roleEntry.Name = name
@@ -167,6 +168,17 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 
 	if roleEntry.MaxTTL != 0 && roleEntry.TTL > roleEntry.MaxTTL {
 		return logical.ErrorResponse("ttl cannot be greater than max_ttl"), nil
+	}
+
+	if createToken {
+		token, err := b.createToken(ctx, req.Storage, name, roleEntry)
+		// save token to role
+		if err != nil {
+			// return logical.ErrorResponse(err.Error()), nil
+			return nil, err
+		}
+
+		roleEntry.Token = token
 	}
 
 	if err := setTerraformRole(ctx, req.Storage, name, roleEntry); err != nil {
