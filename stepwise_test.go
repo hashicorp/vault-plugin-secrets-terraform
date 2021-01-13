@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/testing/stepwise"
 	dockerEnvironment "github.com/hashicorp/vault/sdk/testing/stepwise/environments/docker"
+	"github.com/ryboe/q"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -90,6 +91,7 @@ func testAccOrganizationRoleRead(t *testing.T, roleName, orgName string) stepwis
 		Assert: func(resp *api.Secret, err error) error {
 			assert.NotNil(t, resp)
 			assert.Equal(t, orgName, resp.Data["organization"])
+			q.Q("read resp:", resp)
 			return nil
 		},
 	}
