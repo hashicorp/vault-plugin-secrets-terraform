@@ -47,6 +47,7 @@ func backend() *tfBackend {
 				pathConfig(&b),
 				pathCredentials(&b),
 			},
+			pathRotateRole(&b),
 		),
 		Secrets: []*framework.Secret{
 			b.terraformToken(),
