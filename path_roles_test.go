@@ -2,6 +2,7 @@ package tfc
 
 import (
 	"context"
+	"os"
 	"strconv"
 	"testing"
 
@@ -10,22 +11,22 @@ import (
 )
 
 const (
-	roleName     = "testtfc"
-	organization = "testing-org"
-	teamID       = "team-asdfasdfasdfa"
-	testTTL      = int64(120)
-	testMaxTTL   = int64(3600)
+	roleName   = "testtfc"
+	testTTL    = int64(120)
+	testMaxTTL = int64(3600)
 )
 
 func TestTokenRole(t *testing.T) {
 	b, s := getTestBackend(t)
+	organization := os.Getenv(envVarTerraformOrganization)
+	teamID := os.Getenv(envVarTerraformTeamID)
 
 	t.Run("List All Roles", func(t *testing.T) {
 		for i := 1; i <= 10; i++ {
 			_, err := testTokenRoleCreate(t, b, s,
 				roleName+strconv.Itoa(i),
 				map[string]interface{}{
-					"organization": organization + strconv.Itoa(i),
+					"organization": organization,
 				},
 			)
 			assert.NoError(t, err)
