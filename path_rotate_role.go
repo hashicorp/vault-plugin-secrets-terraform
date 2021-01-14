@@ -31,6 +31,7 @@ func pathRotateRole(b *tfBackend) []*framework.Path {
 		},
 	}
 }
+
 func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	var resp logical.Response
 
