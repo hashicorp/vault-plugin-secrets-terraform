@@ -1,7 +1,6 @@
 package tfc
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -22,30 +21,46 @@ func TestAcceptanceRotateRole(t *testing.T) {
 
 	t.Run("add config", acceptanceTestEnv.AddConfig)
 	t.Run("add organization token role", acceptanceTestEnv.AddOrgTokenRole)
-	t.Run("read organization token cred", acceptanceTestEnv.RotateToken)
+	t.Run("read organization token cred", acceptanceTestEnv.ReadOrgToken)
+	t.Run("rotate organization token cred", acceptanceTestEnv.RotateToken)
+	t.Run("rotate organization token cred", acceptanceTestEnv.VerifyTokenChange)
 }
 
 func (e *testEnv) RotateToken(t *testing.T) {
 	req := &logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      "role/test-org-token",
+		Path:      "rotate-role/test-org-token",
+		Storage:   e.Storage,
+	}
+	resp, err := e.Backend.HandleRequest(e.Context, req)
+	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	assert.NotNil(t, resp)
+}
+
+func (e *testEnv) VerifyTokenChange(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "rotate-role/test-org-token",
 		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
 	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
 	assert.NotNil(t, resp)
 
-	e.MostRecentSecret = resp.Secret
+	rotateReq := &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "creds/test-org-token",
+		Storage:   e.Storage,
+	}
+	resp, err = e.Backend.HandleRequest(e.Context, rotateReq)
+	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	assert.NotNil(t, resp)
+	assert.NotEmpty(t, resp.Data["token"])
 
-	// verify there is a token
-	b := e.Backend.(*tfBackend)
-	client, err := b.getClient(context.Background(), e.Storage)
-	if err != nil {
-		t.Fatal("fatal getting client")
+	if tRaw, ok := resp.Data["token"]; ok {
+		token := tRaw.(string)
+		assert.NotEqual(t, e.SecretToken, token)
+	} else {
+		t.Fatalf("expected token, but found none")
 	}
-	ot, err := client.OrganizationTokens.Read(e.Context, e.Organization)
-	if err != nil {
-		t.Fatalf("unexpected error reading organization token: %s", err)
-	}
-	assert.NotNil(t, ot)
 }

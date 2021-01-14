@@ -49,6 +49,7 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role entry"), nil
 	}
 
+	//TODO: verify team/org
 	token, err := b.createToken(ctx, req.Storage, name, roleEntry)
 	// save token to role
 	if err != nil {

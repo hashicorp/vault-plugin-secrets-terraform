@@ -28,7 +28,8 @@ type testEnv struct {
 	Context context.Context
 	Storage logical.Storage
 
-	MostRecentSecret *logical.Secret
+	// SecretToken tracks the API token, for checking rotations
+	SecretToken string
 }
 
 func (e *testEnv) AddConfig(t *testing.T) {
@@ -69,8 +70,9 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.NotEmpty(t, resp.Data["token"])
 
-	e.MostRecentSecret = resp.Secret
-
+	if t, ok := resp.Data["token"]; ok {
+		e.SecretToken = t.(string)
+	}
 	// verify there is a token
 	b := e.Backend.(*tfBackend)
 	client, err := b.getClient(context.Background(), e.Storage)
@@ -120,5 +122,7 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 		t.Fatalf("unexpected error reading team token: %s", err)
 	}
 	assert.NotNil(t, tt)
-	e.MostRecentSecret = resp.Secret
+	if t, ok := resp.Data["token"]; ok {
+		e.SecretToken = t.(string)
+	}
 }
