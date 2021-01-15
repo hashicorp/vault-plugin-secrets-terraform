@@ -87,6 +87,23 @@ func TestTokenRole(t *testing.T) {
 	})
 }
 
+func TestUserRole(t *testing.T) {
+	b, s := getTestBackend(t)
+	organization := os.Getenv(envVarTerraformOrganization)
+	teamID := os.Getenv(envVarTerraformTeamID)
+
+	t.Run("Create User Role - fail", func(t *testing.T) {
+		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			"organization": organization,
+			// user_id cannot be combined with organization or team
+			"user_id": teamID,
+		})
+		assert.Nil(t, err)
+
+		assert.Error(t, resp.Error())
+	})
+}
+
 // Utility function to create a role while, returning any response (including errors)
 func testTokenRoleCreate(t *testing.T, b *tfBackend, s logical.Storage, name string, d map[string]interface{}) (*logical.Response, error) {
 	t.Helper()
@@ -101,9 +118,6 @@ func testTokenRoleCreate(t *testing.T, b *tfBackend, s logical.Storage, name str
 		return nil, err
 	}
 
-	if resp != nil && resp.IsError() {
-		t.Fatal(resp.Error())
-	}
 	return resp, nil
 }
 

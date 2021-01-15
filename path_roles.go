@@ -50,6 +50,10 @@ func pathRole(b *tfBackend) []*framework.Path {
 					Type:        framework.TypeString,
 					Description: "ID of the Terraform Cloud or Enterprise team under organization (e.g., settings/teams/team-xxxxxxxxxxxxx)",
 				},
+				"user_id": {
+					Type:        framework.TypeString,
+					Description: "ID of the Terraform Cloud or Enterprise user (e.g., user-xxxxxxxxxxxxxxxx)",
+				},
 				"ttl": {
 					Type:        framework.TypeDurationSecond,
 					Description: "Default lease for generated credentials. If not set or set to 0, will use system default.",
@@ -123,6 +127,23 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role name"), nil
 	}
 
+	// verify we have either a team, org, or user.
+	// This is crude and should be refactored
+	input := map[string]string{
+		"user_id":      "",
+		"team_id":      "",
+		"organization": "",
+	}
+	for k := range input {
+		if v, ok := d.GetOk(k); ok {
+			input[k] = v.(string)
+		}
+	}
+
+	if (input["organization"] != "" || input["team_id"] != "") && input["user_id"] != "" {
+		return logical.ErrorResponse("must provide one of user_id, team_id, or organization"), nil
+	}
+
 	roleEntry, err := getRole(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
@@ -140,6 +161,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	if organization, ok := d.GetOk("organization"); ok {
 		roleEntry.Organization = organization.(string)
 	} else if req.Operation == logical.CreateOperation {
+		// TODO: we don't need an org if we have team_id
 		roleEntry.Organization = d.Get("organization").(string)
 		if roleEntry.Organization == "" {
 			return logical.ErrorResponse("missing organization"), nil
