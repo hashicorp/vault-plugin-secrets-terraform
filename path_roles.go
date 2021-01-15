@@ -22,11 +22,18 @@ type terraformRoleEntry struct {
 
 func (r terraformRoleEntry) toResponseData() map[string]interface{} {
 	respData := map[string]interface{}{
-		"name":         r.Name,
-		"organization": r.Organization,
-		"team_id":      r.TeamID,
-		"ttl":          r.TTL.Seconds(),
-		"max_ttl":      r.MaxTTL.Seconds(),
+		"name":    r.Name,
+		"ttl":     r.TTL.Seconds(),
+		"max_ttl": r.MaxTTL.Seconds(),
+	}
+	if r.Organization != "" {
+		respData["organization"] = r.Organization
+	}
+	if r.TeamID != "" {
+		respData["team_id"] = r.TeamID
+	}
+	if r.UserID != "" {
+		respData["user_id"] = r.UserID
 	}
 	return respData
 }
@@ -127,23 +134,6 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role name"), nil
 	}
 
-	// verify we have either a team, org, or user.
-	// This is crude and should be refactored
-	input := map[string]string{
-		"user_id":      "",
-		"team_id":      "",
-		"organization": "",
-	}
-	for k := range input {
-		if v, ok := d.GetOk(k); ok {
-			input[k] = v.(string)
-		}
-	}
-
-	if (input["organization"] != "" || input["team_id"] != "") && input["user_id"] != "" {
-		return logical.ErrorResponse("must provide one of user_id, team_id, or organization"), nil
-	}
-
 	roleEntry, err := getRole(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
@@ -157,24 +147,54 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	}
 
 	roleEntry.Name = name
-
 	if organization, ok := d.GetOk("organization"); ok {
 		roleEntry.Organization = organization.(string)
-	} else if req.Operation == logical.CreateOperation {
-		// TODO: we don't need an org if we have team_id
+	} else if organization != nil {
 		roleEntry.Organization = d.Get("organization").(string)
-		if roleEntry.Organization == "" {
-			return logical.ErrorResponse("missing organization"), nil
-		}
+	} else {
+		roleEntry.Organization = ""
 	}
-
-	if team, ok := d.GetOk("team_id"); ok {
-		roleEntry.TeamID = team.(string)
-	} else if team != nil {
+	if teamID, ok := d.GetOk("team_id"); ok {
+		roleEntry.TeamID = teamID.(string)
+	} else if teamID != nil {
 		roleEntry.TeamID = d.Get("team_id").(string)
 	} else {
 		roleEntry.TeamID = ""
 	}
+	if userID, ok := d.GetOk("user_id"); ok {
+		roleEntry.UserID = userID.(string)
+	} else if userID != nil {
+		roleEntry.UserID = d.Get("user_id").(string)
+	} else {
+		roleEntry.UserID = ""
+	}
+
+	if roleEntry.UserID != "" {
+		// unset this
+		createToken = false
+	}
+
+	if (roleEntry.Organization != "" || roleEntry.TeamID != "") && roleEntry.UserID != "" {
+		return logical.ErrorResponse("must provide one of user_id, team_id, or organization"), nil
+	}
+
+	// if organization, ok := d.GetOk("organization"); ok {
+	// 	roleEntry.Organization = organization.(string)
+	// } else if req.Operation == logical.CreateOperation {
+	// 	// TODO: we don't need an org if we have team_id
+	// 	roleEntry.Organization = d.Get("organization").(string)
+	// 	if roleEntry.Organization == "" {
+	// 		return logical.ErrorResponse("missing organization"), nil
+	// 	}
+	// }
+
+	// if team, ok := d.GetOk("team_id"); ok {
+	// 	roleEntry.TeamID = team.(string)
+	// } else if team != nil {
+	// 	roleEntry.TeamID = d.Get("team_id").(string)
+	// } else {
+	// 	roleEntry.TeamID = ""
+	// }
 
 	if ttlRaw, ok := d.GetOk("ttl"); ok {
 		roleEntry.TTL = time.Duration(ttlRaw.(int)) * time.Second

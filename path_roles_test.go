@@ -47,7 +47,7 @@ func TestTokenRole(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, roleName, resp.Data["name"])
 		assert.Equal(t, organization, resp.Data["organization"])
-		assert.Equal(t, "", resp.Data["team_id"])
+		assert.Empty(t, resp.Data["team_id"])
 
 		resp, err = testTokenRoleUpdate(t, b, s, map[string]interface{}{
 			"team_id": teamID,
@@ -59,7 +59,8 @@ func TestTokenRole(t *testing.T) {
 		resp, err = testTokenRoleRead(t, b, s)
 		assert.NoError(t, err)
 		assert.Equal(t, roleName, resp.Data["name"])
-		assert.Equal(t, organization, resp.Data["organization"])
+		// organization should be cleared now
+		assert.Empty(t, resp.Data["organization"])
 		assert.Equal(t, teamID, resp.Data["team_id"])
 		assert.Equal(t, float64(testTTL), resp.Data["ttl"])
 		assert.Equal(t, float64(testMaxTTL), resp.Data["max_ttl"])
@@ -91,6 +92,7 @@ func TestUserRole(t *testing.T) {
 	b, s := getTestBackend(t)
 	organization := os.Getenv(envVarTerraformOrganization)
 	teamID := os.Getenv(envVarTerraformTeamID)
+	userID := os.Getenv(envVarTerraformTeamID)
 
 	t.Run("Create User Role - fail", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
@@ -101,6 +103,24 @@ func TestUserRole(t *testing.T) {
 		assert.Nil(t, err)
 
 		assert.Error(t, resp.Error())
+	})
+	t.Run("Create User Role - pass", func(t *testing.T) {
+		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			"user_id": userID,
+			"max_ttl": "3600",
+		})
+
+		assert.Nil(t, err)
+		assert.Nil(t, resp.Error())
+		assert.NotNil(t, resp)
+	})
+	t.Run("Read User Role", func(t *testing.T) {
+		resp, err := testTokenRoleRead(t, b, s)
+
+		assert.Nil(t, err)
+		assert.Nil(t, resp.Error())
+		assert.NotNil(t, resp)
+		assert.Equal(t, resp.Data["user_id"], userID)
 	})
 }
 
@@ -138,6 +158,16 @@ func testTokenRoleUpdate(t *testing.T, b *tfBackend, s logical.Storage, d map[st
 		t.Fatal(resp.Error())
 	}
 	return resp, nil
+}
+
+// Utility function to read a role and return any errors
+func testUserTokenRead(t *testing.T, b *tfBackend, s logical.Storage) (*logical.Response, error) {
+	t.Helper()
+	return b.HandleRequest(context.Background(), &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "creds/" + roleName,
+		Storage:   s,
+	})
 }
 
 // Utility function to read a role and return any errors

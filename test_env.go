@@ -15,6 +15,7 @@ const (
 	envVarTerraformToken        = "TEST_TF_TOKEN"
 	envVarTerraformOrganization = "TEST_TF_ORGANIZATION"
 	envVarTerraformTeamID       = "TEST_TF_TEAM_ID"
+	envVarTerraformUserID       = "TEST_TF_USER_ID"
 )
 
 var runAcceptanceTests = os.Getenv(envVarRunAccTests) == "1"
