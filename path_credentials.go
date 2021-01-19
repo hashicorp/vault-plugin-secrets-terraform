@@ -85,6 +85,13 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 			"role":        roleName,
 			"description": token.Description,
 		})
+		if role.TTL > 0 {
+			resp.Secret.TTL = role.TTL
+		}
+
+		if role.MaxTTL > 0 {
+			resp.Secret.MaxTTL = role.MaxTTL
+		}
 		return resp, nil
 		// role.Token = token
 
