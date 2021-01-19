@@ -28,6 +28,12 @@ func (t *terraformToken) translateTeamToken(token *tfe.TeamToken) {
 	t.Token = token.Token
 }
 
+func (t *terraformToken) translateUserToken(token *tfe.UserToken) {
+	t.ID = token.ID
+	t.Description = token.Description
+	t.Token = token.Token
+}
+
 func newClient(config *tfConfig) (*client, error) {
 	if config == nil {
 		return nil, errors.New("client configuration was nil")
