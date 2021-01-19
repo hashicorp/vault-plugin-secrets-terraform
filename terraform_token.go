@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-tfe"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -73,6 +74,18 @@ func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformT
 
 	tfToken := &terraformToken{}
 	tfToken.translateTeamToken(token)
+	return tfToken, nil
+}
+
+func createUserToken(ctx context.Context, c *client, userID string) (*terraformToken, error) {
+	// TODO: user-supplied description
+	token, err := c.UserTokens.Generate(ctx, userID, tfe.UserTokenGenerateOptions{Description: "created by Vault"})
+	if err != nil {
+		return nil, err
+	}
+
+	tfToken := &terraformToken{}
+	tfToken.translateUserToken(token)
 	return tfToken, nil
 }
 
