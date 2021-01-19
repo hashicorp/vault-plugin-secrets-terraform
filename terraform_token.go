@@ -129,6 +129,18 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 		return nil, nil
 	}
 
+	tokenID := ""
+	tokenIDRaw, ok := req.Secret.InternalData["token_id"]
+	if ok {
+		tokenID, ok = tokenIDRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("secret is missing tokenID internal data")
+		}
+	}
+
+	if err := client.UserTokens.Delete(ctx, tokenID); err != nil {
+		return nil, errwrap.Wrapf("error revoking user token: {{err}}", err)
+	}
 	return nil, nil
 }
 

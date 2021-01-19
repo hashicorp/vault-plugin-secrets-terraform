@@ -80,7 +80,7 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 	}
 	// verify there is a token
 	b := e.Backend.(*tfBackend)
-	client, err := b.getClient(context.Background(), e.Storage)
+	client, err := b.getClient(e.Context, e.Storage)
 	if err != nil {
 		t.Fatal("fatal getting client")
 	}
@@ -118,7 +118,7 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 
 	// verify there is a token
 	b := e.Backend.(*tfBackend)
-	client, err := b.getClient(context.Background(), e.Storage)
+	client, err := b.getClient(e.Context, e.Storage)
 	if err != nil {
 		t.Fatal("fatal getting client")
 	}
@@ -170,27 +170,19 @@ func (e *testEnv) ReadUserToken(t *testing.T) {
 	}
 }
 
-// func (e *testEnv) RevokeUserTokens(t *testing.T) {
-// 	req := &logical.Request{
-// 		Operation: logical.ReadOperation,
-// 		Path:      "creds/test-user-token",
-// 		Storage:   e.Storage,
-// 	}
-// 	resp, err := e.Backend.HandleRequest(e.Context, req)
-// 	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-// 	assert.NotNil(t, resp)
-// 	if t, ok := resp.Data["token_id"]; ok {
-// 		e.TokenIDs = append(e.TokenIDs, t.(string))
-// 	}
-// 	assert.NotEmpty(t, resp.Data["token"])
+func (e *testEnv) RevokeUserTokens(t *testing.T) {
+	if len(e.TokenIDs) == 0 {
+		t.Fatalf("expected 2 tokens, got: %d", len(e.TokenIDs))
+	}
 
-// 	if e.SecretToken != "" {
-// 		assert.NotEqual(t, e.SecretToken, resp.Data["token"])
-// 	}
-
-// 	// collect secret IDs to revoke at end of test
-// 	assert.NotNil(t, resp.Secret)
-// 	if t, ok := resp.Secret.InternalData["token_id"]; ok {
-// 		e.SecretToken = t.(string)
-// 	}
-// }
+	for _, id := range e.TokenIDs {
+		b := e.Backend.(*tfBackend)
+		client, err := b.getClient(e.Context, e.Storage)
+		if err != nil {
+			t.Fatal("fatal getting client")
+		}
+		if err := client.UserTokens.Delete(e.Context, id); err != nil {
+			t.Fatalf("unexpected error reading organization token: %s", err)
+		}
+	}
+}
