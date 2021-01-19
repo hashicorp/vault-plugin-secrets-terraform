@@ -56,26 +56,36 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 		return nil, errors.New("error retrieving role: role is nil")
 	}
 
-	var token string
+	token := &terraformToken{}
 	// if we already have a token, return that
 	makeToken := true
 	if (role.Organization != "" || role.TeamID != "") && role.UserID == "" {
 		// role.token != "" {
 		if role.Token != "" {
 			makeToken = false
-			token = role.Token
+			token.Token = role.Token
 			// }
 		}
 	}
 
 	if makeToken {
-		// token, err = b.createToken(ctx, req.Storage, roleName, role)
-		// // save token to role
-		// if err != nil {
-		// 	// return logical.ErrorResponse(err.Error()), nil
-		// 	return nil, err
-		// }
+		token, err = b.createToken(ctx, req.Storage, roleName, role)
+		// save token to role
+		if err != nil {
+			// return logical.ErrorResponse(err.Error()), nil
+			return nil, err
+		}
 
+		resp := b.Secret(terraformTokenType).Response(map[string]interface{}{
+			"token": token.Token,
+			// Include token_id for auditing
+			"token_id": token.ID,
+		}, map[string]interface{}{
+			"token_id":    token.ID,
+			"role":        roleName,
+			"description": token.Description,
+		})
+		return resp, nil
 		// role.Token = token
 
 		// if err := setTerraformRole(ctx, req.Storage, roleName, role); err != nil {
@@ -85,7 +95,8 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 
 	resp := &logical.Response{
 		Data: map[string]interface{}{
-			"token":        token,
+			"token_id":     token.ID,
+			"token":        token.Token,
 			"organization": role.Organization,
 			"team_id":      role.TeamID,
 			"role":         role.Name,
@@ -94,11 +105,11 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 	return resp, nil
 }
 
-func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName string, roleEntry *terraformRoleEntry) (string, error) {
+func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName string, roleEntry *terraformRoleEntry) (*terraformToken, error) {
 	client, err := b.getClient(ctx, s)
 	if err != nil {
 		// return logical.ErrorResponse(err.Error()), nil
-		return "", err
+		return nil, err
 	}
 
 	var token *terraformToken
@@ -108,18 +119,20 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName
 		token, err = createOrgToken(ctx, client, roleEntry.Organization)
 	case isTeamToken(roleEntry.TeamID):
 		token, err = createTeamToken(ctx, client, roleEntry.TeamID)
+	default:
+		token, err = createUserToken(ctx, client, roleEntry.UserID)
 	}
 
 	if err != nil {
 		// return logical.ErrorResponse("Error creating Terraform token: %s", err), err
-		return "", errwrap.Wrapf("error creating Terraform token: {{err}}", err)
+		return nil, errwrap.Wrapf("error creating Terraform token: {{err}}", err)
 	}
 
 	if token == nil {
-		return "", errors.New("error creating Terraform token")
+		return nil, errors.New("error creating Terraform token")
 	}
 
-	return token.Token, nil
+	return token, nil
 }
 
 func (b *tfBackend) credentialRead(ctx context.Context, s logical.Storage, roleName string) (*terraformRoleEntry, error) {
