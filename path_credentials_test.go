@@ -31,6 +31,7 @@ func newAcceptanceTestEnv() (*testEnv, error) {
 		Token:        os.Getenv(envVarTerraformToken),
 		Organization: os.Getenv(envVarTerraformOrganization),
 		TeamID:       os.Getenv(envVarTerraformTeamID),
+		UserID:       os.Getenv(envVarTerraformUserID),
 		Backend:      b,
 		Context:      ctx,
 		Storage:      &logical.InmemStorage{},
@@ -65,4 +66,21 @@ func TestAcceptanceTeamToken(t *testing.T) {
 	t.Run("add config", acceptanceTestEnv.AddConfig)
 	t.Run("add team token role", acceptanceTestEnv.AddTeamTokenRole)
 	t.Run("read team token cred", acceptanceTestEnv.ReadTeamToken)
+}
+
+func TestAcceptanceUserToken(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
+	acceptanceTestEnv, err := newAcceptanceTestEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("add config", acceptanceTestEnv.AddConfig)
+	t.Run("add user token role", acceptanceTestEnv.AddUserTokenRole)
+	t.Run("read user token cred", acceptanceTestEnv.ReadUserToken)
+	t.Run("read user token cred", acceptanceTestEnv.ReadUserToken)
+	// t.Run("revoke user tokens", acceptanceTestEnv.RevokeUserTokens)
 }

@@ -24,6 +24,7 @@ type testEnv struct {
 	Token        string
 	Organization string
 	TeamID       string
+	UserID       string
 
 	Backend logical.Backend
 	Context context.Context
@@ -31,6 +32,9 @@ type testEnv struct {
 
 	// SecretToken tracks the API token, for checking rotations
 	SecretToken string
+
+	// TokenIDs tracks the IDs of generated tokens, to make sure we clean up
+	TokenIDs []string
 }
 
 func (e *testEnv) AddConfig(t *testing.T) {
@@ -127,3 +131,66 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 		e.SecretToken = t.(string)
 	}
 }
+
+func (e *testEnv) AddUserTokenRole(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "role/test-user-token",
+		Storage:   e.Storage,
+		Data: map[string]interface{}{
+			"user_id": e.UserID,
+		},
+	}
+	resp, err := e.Backend.HandleRequest(e.Context, req)
+	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+}
+
+func (e *testEnv) ReadUserToken(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "creds/test-user-token",
+		Storage:   e.Storage,
+	}
+	resp, err := e.Backend.HandleRequest(e.Context, req)
+	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	assert.NotNil(t, resp)
+	if t, ok := resp.Data["token_id"]; ok {
+		e.TokenIDs = append(e.TokenIDs, t.(string))
+	}
+	assert.NotEmpty(t, resp.Data["token"])
+
+	if e.SecretToken != "" {
+		assert.NotEqual(t, e.SecretToken, resp.Data["token"])
+	}
+
+	// collect secret IDs to revoke at end of test
+	assert.NotNil(t, resp.Secret)
+	if t, ok := resp.Secret.InternalData["token_id"]; ok {
+		e.SecretToken = t.(string)
+	}
+}
+
+// func (e *testEnv) RevokeUserTokens(t *testing.T) {
+// 	req := &logical.Request{
+// 		Operation: logical.ReadOperation,
+// 		Path:      "creds/test-user-token",
+// 		Storage:   e.Storage,
+// 	}
+// 	resp, err := e.Backend.HandleRequest(e.Context, req)
+// 	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+// 	assert.NotNil(t, resp)
+// 	if t, ok := resp.Data["token_id"]; ok {
+// 		e.TokenIDs = append(e.TokenIDs, t.(string))
+// 	}
+// 	assert.NotEmpty(t, resp.Data["token"])
+
+// 	if e.SecretToken != "" {
+// 		assert.NotEqual(t, e.SecretToken, resp.Data["token"])
+// 	}
+
+// 	// collect secret IDs to revoke at end of test
+// 	assert.NotNil(t, resp.Secret)
+// 	if t, ok := resp.Secret.InternalData["token_id"]; ok {
+// 		e.SecretToken = t.(string)
+// 	}
+// }
