@@ -39,6 +39,34 @@ func TestAccOrganizationToken(t *testing.T) {
 	})
 }
 
+func TestAccUserToken(t *testing.T) {
+	t.Parallel()
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+	envOptions := &stepwise.MountOptions{
+		RegistryName:    "tfc",
+		PluginType:      stepwise.PluginTypeSecrets,
+		PluginName:      "vault-plugin-secrets-terraform",
+		MountPathPrefix: "tfc",
+	}
+
+	roleName := "vault-stepwise-user-role"
+	userID := os.Getenv(envVarTerraformUserID)
+	cred := new(string)
+	stepwise.Run(t, stepwise.Case{
+		Precheck:    func() { testAccPreCheck(t) },
+		Environment: dockerEnvironment.NewEnvironment("tfc", envOptions),
+		Steps: []stepwise.Step{
+			testAccConfig(t),
+			testAccUserRole(t, roleName, userID),
+			testAccUserRoleRead(t, roleName, userID),
+			testAccUserCredReRead(t, roleName, cred),
+			testAccUserCredReRead(t, roleName, cred),
+		},
+	})
+}
+
 var initSetup sync.Once
 
 func testAccPreCheck(t *testing.T) {
@@ -120,6 +148,50 @@ func testAccOrganizationCredReRead(t *testing.T, roleName string, orgToken *stri
 			} else {
 				t.Fatal("expected orgToken to have a value")
 			}
+			return nil
+		},
+	}
+}
+
+func testAccUserRole(t *testing.T, roleName, userID string) stepwise.Step {
+	return stepwise.Step{
+		Operation: stepwise.UpdateOperation,
+		Path:      "role/" + roleName,
+		Data: map[string]interface{}{
+			"user_id": userID,
+			"ttl":     "1m",
+			"max_ttl": "5m",
+		},
+		Assert: func(resp *api.Secret, err error) error {
+			assert.NotNil(t, resp)
+			return nil
+		},
+	}
+}
+
+func testAccUserRoleRead(t *testing.T, roleName, userID string) stepwise.Step {
+	return stepwise.Step{
+		Operation: stepwise.ReadOperation,
+		Path:      "role/" + roleName,
+		Assert: func(resp *api.Secret, err error) error {
+			assert.NotNil(t, resp)
+			assert.Equal(t, userID, resp.Data["user_id"])
+			return nil
+		},
+	}
+}
+
+func testAccUserCredReRead(t *testing.T, roleName string, userToken *string) stepwise.Step {
+	return stepwise.Step{
+		Operation: stepwise.ReadOperation,
+		Path:      "creds/" + roleName,
+		Assert: func(resp *api.Secret, err error) error {
+			assert.NotNil(t, resp)
+			assert.NotEmpty(t, resp.Data["token"])
+			if *userToken != "" {
+				assert.NotEqual(t, *userToken, resp.Data["token"].(string))
+			}
+			*userToken = resp.Data["token"].(string)
 			return nil
 		},
 	}

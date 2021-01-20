@@ -85,6 +85,7 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 			"role":        roleName,
 			"description": token.Description,
 		})
+
 		if role.TTL > 0 {
 			resp.Secret.TTL = role.TTL
 		}
@@ -92,12 +93,8 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 		if role.MaxTTL > 0 {
 			resp.Secret.MaxTTL = role.MaxTTL
 		}
-		return resp, nil
-		// role.Token = token
 
-		// if err := setTerraformRole(ctx, req.Storage, roleName, role); err != nil {
-		// 	return nil, err
-		// }
+		return resp, nil
 	}
 
 	resp := &logical.Response{

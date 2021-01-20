@@ -23,30 +23,6 @@ func isTeamToken(team string) bool {
 	return team != ""
 }
 
-func deleteOrgToken(ctx context.Context, c *client, organization string) error {
-	if _, err := c.Organizations.Read(ctx, organization); err != nil {
-		return err
-	}
-
-	if err := c.OrganizationTokens.Delete(ctx, organization); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func deleteTeamToken(ctx context.Context, c *client, teamID string) error {
-	if _, err := c.Teams.Read(ctx, teamID); err != nil {
-		return err
-	}
-
-	if err := c.TeamTokens.Delete(ctx, teamID); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func createOrgToken(ctx context.Context, c *client, organization string) (*terraformToken, error) {
 	if _, err := c.Organizations.Read(ctx, organization); err != nil {
 		return nil, err
