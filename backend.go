@@ -4,13 +4,10 @@ import (
 	"context"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
-
-const minUserRollbackAge = 5 * time.Minute
 
 // Factory returns a new backend as logical.Backend
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {

@@ -256,15 +256,6 @@ func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleE
 	return nil
 }
 
-func saveRole(ctx context.Context, s logical.Storage, c *terraformRoleEntry, name string) error {
-	entry, err := logical.StorageEntryJSON("role/"+name, c)
-	if err != nil {
-		return err
-	}
-
-	return s.Put(ctx, entry)
-}
-
 func getRole(ctx context.Context, s logical.Storage, name string) (*terraformRoleEntry, error) {
 	if name == "" {
 		return nil, errwrap.Wrapf("missing role name", nil)

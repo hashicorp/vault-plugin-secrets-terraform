@@ -39,6 +39,7 @@ func (b *tfBackend) terraformToken() *framework.Secret {
 			},
 		},
 		Revoke: b.terraformTokenRevoke,
+		Renew:  b.terraformTokenRenew,
 	}
 }
 
