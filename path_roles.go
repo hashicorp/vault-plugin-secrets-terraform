@@ -155,6 +155,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	} else {
 		roleEntry.Organization = ""
 	}
+
 	if teamID, ok := d.GetOk("team_id"); ok {
 		roleEntry.TeamID = teamID.(string)
 	} else if teamID != nil {
@@ -162,6 +163,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	} else {
 		roleEntry.TeamID = ""
 	}
+
 	if userID, ok := d.GetOk("user_id"); ok {
 		roleEntry.UserID = userID.(string)
 	} else if userID != nil {
@@ -253,6 +255,7 @@ func getRole(ctx context.Context, s logical.Storage, name string) (*terraformRol
 	}
 
 	var role terraformRoleEntry
+
 	if entry != nil {
 		if err := entry.DecodeJSON(&role); err != nil {
 			return nil, err
