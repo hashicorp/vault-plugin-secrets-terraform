@@ -49,11 +49,9 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role entry"), nil
 	}
 
-	//TODO: verify team/org
+	// TODO: verify team/org
 	token, err := b.createToken(ctx, req.Storage, roleEntry)
-	// save token to role
 	if err != nil {
-		// return logical.ErrorResponse(err.Error()), nil
 		return nil, err
 	}
 
@@ -69,6 +67,7 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 const pathRotateRoleHelpSyn = `
 Request to rotate the credentials for a team or organization.
 `
+
 const pathRotateRoleHelpDesc = `
 This path attempts to rotate the credentials for the given team or organization role
 `

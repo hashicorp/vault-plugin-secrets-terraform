@@ -25,7 +25,7 @@ type tfBackend struct {
 }
 
 func backend() *tfBackend {
-	var b = tfBackend{}
+	b := tfBackend{}
 
 	b.Backend = &framework.Backend{
 		Help: strings.TrimSpace(backendHelp),
@@ -63,8 +63,7 @@ func (b *tfBackend) reset() {
 }
 
 func (b *tfBackend) invalidate(ctx context.Context, key string) {
-	switch key {
-	case "config":
+	if key == "config" {
 		b.reset()
 	}
 }

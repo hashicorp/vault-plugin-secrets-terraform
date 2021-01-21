@@ -263,8 +263,9 @@ func getRole(ctx context.Context, s logical.Storage, name string) (*terraformRol
 	return nil, nil
 }
 
-const pathRoleHelpSynopsis = `Manages the Vault role for generating Terraform Cloud / Enterprise tokens.`
-const pathRoleHelpDescription = `
+const (
+	pathRoleHelpSynopsis    = `Manages the Vault role for generating Terraform Cloud / Enterprise tokens.`
+	pathRoleHelpDescription = `
 This path allows you to read and write roles used to generate Terraform Cloud / Enterprise tokens.
 You can configure an organization token (for configuring an organization)
 or a team token (for a team to plan and apply Terraform).
@@ -276,5 +277,6 @@ To configure the organization
 token, set the organization field.
 `
 
-const pathRoleListHelpSynopsis = `List the existing roles in Terraform Cloud / Enterprise backend`
-const pathRoleListHelpDescription = `Roles will be listed by the role name.`
+	pathRoleListHelpSynopsis    = `List the existing roles in Terraform Cloud / Enterprise backend`
+	pathRoleListHelpDescription = `Roles will be listed by the role name.`
+)

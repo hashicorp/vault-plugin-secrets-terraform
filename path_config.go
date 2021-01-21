@@ -113,7 +113,6 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 	}
 
 	entry, err := logical.StorageEntryJSON(configStoragePath, config)
-
 	if err != nil {
 		return nil, err
 	}
