@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-tfe"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -68,7 +67,7 @@ func createUserToken(ctx context.Context, c *client, userID string) (*terraformT
 func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	client, err := b.getClient(ctx, req.Storage)
 	if err != nil {
-		return nil, errwrap.Wrapf("error getting client: {{err}}", err)
+		return nil, fmt.Errorf("error getting client: %w", err)
 	}
 
 	teamID := ""
@@ -93,14 +92,14 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 	if isOrgToken(organization, teamID) {
 		// revoke org API token
 		if err := client.OrganizationTokens.Delete(ctx, organization); err != nil {
-			return nil, errwrap.Wrapf("error revoking organization token: {{err}}", err)
+			return nil, fmt.Errorf("error revoking organization token: %w", err)
 		}
 		return nil, nil
 	}
 	if isTeamToken(teamID) {
 		// revoke team API token
 		if err := client.TeamTokens.Delete(ctx, teamID); err != nil {
-			return nil, errwrap.Wrapf("error revoking team token: {{err}}", err)
+			return nil, fmt.Errorf("error revoking team token: %w", err)
 		}
 		return nil, nil
 	}
@@ -115,7 +114,7 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 	}
 
 	if err := client.UserTokens.Delete(ctx, tokenID); err != nil {
-		return nil, errwrap.Wrapf("error revoking user token: {{err}}", err)
+		return nil, fmt.Errorf("error revoking user token: %w", err)
 	}
 	return nil, nil
 }
@@ -130,7 +129,7 @@ func (b *tfBackend) terraformTokenRenew(ctx context.Context, req *logical.Reques
 	role := roleRaw.(string)
 	cred, err := b.credentialRead(ctx, req.Storage, role)
 	if err != nil {
-		return nil, errwrap.Wrapf("error retrieving role: {{err}}", err)
+		return nil, fmt.Errorf("error retrieving role: %w", err)
 	}
 
 	if cred == nil {

@@ -3,8 +3,8 @@ package tfc
 import (
 	"context"
 	"errors"
+	"fmt"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -50,7 +50,7 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 
 	role, err := b.credentialRead(ctx, req.Storage, roleName)
 	if err != nil {
-		return nil, errwrap.Wrapf("error retrieving role: {{err}}", err)
+		return nil, fmt.Errorf("error retrieving role: %w", err)
 	}
 
 	if role == nil {
@@ -130,7 +130,7 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName
 
 	if err != nil {
 		// return logical.ErrorResponse("Error creating Terraform token: %s", err), err
-		return nil, errwrap.Wrapf("error creating Terraform token: {{err}}", err)
+		return nil, fmt.Errorf("error creating Terraform token: %w", err)
 	}
 
 	if token == nil {

@@ -2,9 +2,9 @@ package tfc
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -233,7 +233,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 func (b *tfBackend) pathRolesDelete(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	err := req.Storage.Delete(ctx, "role/"+d.Get("name").(string))
 	if err != nil {
-		return nil, errwrap.Wrapf("error deleting terraform role: {{err}}", err)
+		return nil, fmt.Errorf("error deleting terraform role: %w", err)
 	}
 
 	return nil, nil
@@ -246,7 +246,7 @@ func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleE
 	}
 
 	if entry == nil {
-		return errwrap.Wrapf("nil result writing to storage", nil)
+		return fmt.Errorf("nil result writing to storage")
 	}
 
 	if err := s.Put(ctx, entry); err != nil {
@@ -258,7 +258,7 @@ func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleE
 
 func getRole(ctx context.Context, s logical.Storage, name string) (*terraformRoleEntry, error) {
 	if name == "" {
-		return nil, errwrap.Wrapf("missing role name", nil)
+		return nil, fmt.Errorf("missing role name")
 	}
 
 	entry, err := s.Get(ctx, "role/"+name)
