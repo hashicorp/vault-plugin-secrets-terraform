@@ -140,11 +140,8 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return nil, err
 	}
 
-	var createToken bool
 	if roleEntry == nil {
 		roleEntry = &terraformRoleEntry{}
-		// create token
-		createToken = true
 	}
 
 	roleEntry.Name = name
@@ -172,11 +169,6 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		roleEntry.UserID = ""
 	}
 
-	if roleEntry.UserID != "" {
-		// unset this
-		createToken = false
-	}
-
 	if (roleEntry.Organization != "" || roleEntry.TeamID != "") && roleEntry.UserID != "" {
 		return logical.ErrorResponse("must provide one of user_id, team_id, or organization"), nil
 	}
@@ -197,7 +189,10 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("ttl cannot be greater than max_ttl"), nil
 	}
 
-	if createToken {
+	// if we're creating a role to manage a Team or Organization, we need to
+	// create the token now. User tokens will be created when credentials are
+	// read.
+	if roleEntry.Organization != "" || roleEntry.TeamID != "" {
 		token, err := b.createToken(ctx, req.Storage, roleEntry)
 		if err != nil {
 			return nil, err
