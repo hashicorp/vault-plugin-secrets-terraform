@@ -55,7 +55,7 @@ func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformT
 
 func createUserToken(ctx context.Context, c *client, userID string) (*terraformToken, error) {
 	// TODO: user-supplied description
-	token, err := c.UserTokens.Generate(ctx, userID, tfe.UserTokenGenerateOptions{Description: "created by Vault"})
+	token, err := c.UserTokens.Generate(ctx, userID, tfe.UserTokenGenerateOptions{})
 	if err != nil {
 		return nil, err
 	}
