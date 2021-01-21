@@ -126,7 +126,7 @@ func (b *tfBackend) terraformTokenRenew(ctx context.Context, req *logical.Reques
 		return nil, fmt.Errorf("secret is missing token id internal data")
 	}
 
-	//get the credential entry
+	// get the credential entry
 	role := roleRaw.(string)
 	cred, err := b.credentialRead(ctx, req.Storage, role)
 	if err != nil {
