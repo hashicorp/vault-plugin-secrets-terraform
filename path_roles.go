@@ -21,7 +21,7 @@ type terraformRoleEntry struct {
 	TokenID      string        `json:"token_id,omitempty"`
 }
 
-func (r terraformRoleEntry) toResponseData() map[string]interface{} {
+func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
 	respData := map[string]interface{}{
 		"name":    r.Name,
 		"ttl":     r.TTL.Seconds(),
