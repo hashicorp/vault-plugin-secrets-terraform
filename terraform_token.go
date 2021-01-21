@@ -95,6 +95,7 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 		}
 		return nil, nil
 	}
+
 	if isTeamToken(teamID) {
 		// revoke team API token
 		if err := client.TeamTokens.Delete(ctx, teamID); err != nil {
@@ -103,6 +104,7 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 		return nil, nil
 	}
 
+	// if we haven't returned yet, then the token is a user API token
 	tokenID := ""
 	tokenIDRaw, ok := req.Secret.InternalData["token_id"]
 	if ok {

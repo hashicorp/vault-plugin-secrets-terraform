@@ -18,6 +18,7 @@ type terraformRoleEntry struct {
 	TTL          time.Duration `json:"ttl"`
 	MaxTTL       time.Duration `json:"max_ttl"`
 	Token        string        `json:"token,omitempty"`
+	TokenID      string        `json:"token_id,omitempty"`
 }
 
 func (r terraformRoleEntry) toResponseData() map[string]interface{} {
@@ -178,24 +179,6 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("must provide one of user_id, team_id, or organization"), nil
 	}
 
-	// if organization, ok := d.GetOk("organization"); ok {
-	// 	roleEntry.Organization = organization.(string)
-	// } else if req.Operation == logical.CreateOperation {
-	// 	// TODO: we don't need an org if we have team_id
-	// 	roleEntry.Organization = d.Get("organization").(string)
-	// 	if roleEntry.Organization == "" {
-	// 		return logical.ErrorResponse("missing organization"), nil
-	// 	}
-	// }
-
-	// if team, ok := d.GetOk("team_id"); ok {
-	// 	roleEntry.TeamID = team.(string)
-	// } else if team != nil {
-	// 	roleEntry.TeamID = d.Get("team_id").(string)
-	// } else {
-	// 	roleEntry.TeamID = ""
-	// }
-
 	if ttlRaw, ok := d.GetOk("ttl"); ok {
 		roleEntry.TTL = time.Duration(ttlRaw.(int)) * time.Second
 	} else if req.Operation == logical.CreateOperation {
@@ -214,13 +197,12 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 
 	if createToken {
 		token, err := b.createToken(ctx, req.Storage, roleEntry)
-		// save token to role
 		if err != nil {
-			// return logical.ErrorResponse(err.Error()), nil
 			return nil, err
 		}
 
 		roleEntry.Token = token.Token
+		roleEntry.TokenID = token.ID
 	}
 
 	if err := setTerraformRole(ctx, req.Storage, name, roleEntry); err != nil {

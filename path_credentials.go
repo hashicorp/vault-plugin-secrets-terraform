@@ -55,24 +55,14 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 		return nil, errors.New("error retrieving role: role is nil")
 	}
 
-	token := &terraformToken{}
-	// if we already have a token, return that
-	makeToken := true
-	if (role.Organization != "" || role.TeamID != "") && role.UserID == "" {
-		if role.Token != "" {
-			makeToken = false
-			token.Token = role.Token
-		}
-	}
-
-	if makeToken {
+	if role.UserID != "" {
 		return b.createUserCreds(ctx, req, role)
 	}
 
 	resp := &logical.Response{
 		Data: map[string]interface{}{
-			"token_id":     token.ID,
-			"token":        token.Token,
+			"token_id":     role.TokenID,
+			"token":        role.Token,
 			"organization": role.Organization,
 			"team_id":      role.TeamID,
 			"role":         role.Name,
