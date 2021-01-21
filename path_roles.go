@@ -213,7 +213,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	}
 
 	if createToken {
-		token, err := b.createToken(ctx, req.Storage, name, roleEntry)
+		token, err := b.createToken(ctx, req.Storage, roleEntry)
 		// save token to role
 		if err != nil {
 			// return logical.ErrorResponse(err.Error()), nil

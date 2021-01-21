@@ -45,8 +45,6 @@ func (b *tfBackend) terraformToken() *framework.Secret {
 
 func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	roleName := d.Get("name").(string)
-	// b.lock.Lock()
-	// defer b.lock.Unlock()
 
 	role, err := b.credentialRead(ctx, req.Storage, roleName)
 	if err != nil {
@@ -61,41 +59,14 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 	// if we already have a token, return that
 	makeToken := true
 	if (role.Organization != "" || role.TeamID != "") && role.UserID == "" {
-		// role.token != "" {
 		if role.Token != "" {
 			makeToken = false
 			token.Token = role.Token
-			// }
 		}
 	}
 
 	if makeToken {
-		token, err = b.createToken(ctx, req.Storage, roleName, role)
-		// save token to role
-		if err != nil {
-			// return logical.ErrorResponse(err.Error()), nil
-			return nil, err
-		}
-
-		resp := b.Secret(terraformTokenType).Response(map[string]interface{}{
-			"token": token.Token,
-			// Include token_id for auditing
-			"token_id": token.ID,
-		}, map[string]interface{}{
-			"token_id":    token.ID,
-			"role":        roleName,
-			"description": token.Description,
-		})
-
-		if role.TTL > 0 {
-			resp.Secret.TTL = role.TTL
-		}
-
-		if role.MaxTTL > 0 {
-			resp.Secret.MaxTTL = role.MaxTTL
-		}
-
-		return resp, nil
+		return b.createUserCreds(ctx, req, role)
 	}
 
 	resp := &logical.Response{
@@ -110,7 +81,33 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 	return resp, nil
 }
 
-func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName string, roleEntry *terraformRoleEntry) (*terraformToken, error) {
+func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, role *terraformRoleEntry) (*logical.Response, error) {
+	token, err := b.createToken(ctx, req.Storage, role)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := b.Secret(terraformTokenType).Response(map[string]interface{}{
+		"token":    token.Token,
+		"token_id": token.ID,
+	}, map[string]interface{}{
+		"token_id":    token.ID,
+		"role":        role.Name,
+		"description": token.Description,
+	})
+
+	if role.TTL > 0 {
+		resp.Secret.TTL = role.TTL
+	}
+
+	if role.MaxTTL > 0 {
+		resp.Secret.MaxTTL = role.MaxTTL
+	}
+
+	return resp, nil
+}
+
+func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntry *terraformRoleEntry) (*terraformToken, error) {
 	client, err := b.getClient(ctx, s)
 	if err != nil {
 		// return logical.ErrorResponse(err.Error()), nil
