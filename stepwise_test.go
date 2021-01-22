@@ -11,9 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var isCircleCI = os.Getenv("CIRCLECI") == "true"
+
 func TestAccOrganizationToken(t *testing.T) {
 	t.Parallel()
-	if !runAcceptanceTests {
+	if runAcceptanceTests && isCircleCI {
 		t.SkipNow()
 	}
 	envOptions := &stepwise.MountOptions{
@@ -41,7 +43,7 @@ func TestAccOrganizationToken(t *testing.T) {
 
 func TestAccUserToken(t *testing.T) {
 	t.Parallel()
-	if !runAcceptanceTests {
+	if runAcceptanceTests && isCircleCI {
 		t.SkipNow()
 	}
 	envOptions := &stepwise.MountOptions{
