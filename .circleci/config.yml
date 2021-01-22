@@ -1,4 +1,10 @@
 version: 2
+workflows:
+  test-env-vars:
+    jobs:
+      - build:
+          context: vault-plugin-secrets-terraform
+
 jobs:
   build:
     docker:
