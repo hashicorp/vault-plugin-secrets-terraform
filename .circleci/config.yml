@@ -18,9 +18,9 @@ jobs:
       - run:
           name: "Setup Environment"
           command: |
-            echo 'export GO111MODULE=on' >> 
+            echo 'export GO111MODULE=on' >> $BASH_ENV
       - setup_remote_docker:
-        version: 19.03.13
+          version: 19.03.13
       - run:
           name: "Run Tests"
           command: |
