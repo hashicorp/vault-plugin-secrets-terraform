@@ -81,9 +81,8 @@ func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, r
 		"token":    token.Token,
 		"token_id": token.ID,
 	}, map[string]interface{}{
-		"token_id":    token.ID,
-		"role":        role.Name,
-		"description": token.Description,
+		"token_id": token.ID,
+		"role":     role.Name,
 	})
 
 	if role.TTL > 0 {

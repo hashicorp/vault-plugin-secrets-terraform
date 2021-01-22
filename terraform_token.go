@@ -32,9 +32,11 @@ func createOrgToken(ctx context.Context, c *client, organization string) (*terra
 		return nil, err
 	}
 
-	tfToken := &terraformToken{}
-	tfToken.translateOrganizationToken(token)
-	return tfToken, nil
+	return &terraformToken{
+		ID:          token.ID,
+		Description: token.Description,
+		Token:       token.Token,
+	}, nil
 }
 
 func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformToken, error) {
@@ -47,9 +49,11 @@ func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformT
 		return nil, err
 	}
 
-	tfToken := &terraformToken{}
-	tfToken.translateTeamToken(token)
-	return tfToken, nil
+	return &terraformToken{
+		ID:          token.ID,
+		Description: token.Description,
+		Token:       token.Token,
+	}, nil
 }
 
 func createUserToken(ctx context.Context, c *client, userID string) (*terraformToken, error) {
@@ -58,9 +62,11 @@ func createUserToken(ctx context.Context, c *client, userID string) (*terraformT
 		return nil, err
 	}
 
-	tfToken := &terraformToken{}
-	tfToken.translateUserToken(token)
-	return tfToken, nil
+	return &terraformToken{
+		ID:          token.ID,
+		Description: token.Description,
+		Token:       token.Token,
+	}, nil
 }
 
 func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
