@@ -1,12 +1,14 @@
-version: 2
+version: 2.1
+
 workflows:
-  test-env-vars:
+  test-workflow:
     jobs:
-      - build:
-          context: vault-plugin-secrets-terraform
+      - run-tests:
+          context:
+            - vault-plugin-secrets-terraform
 
 jobs:
-  build:
+  run-tests:
     docker:
       - image: docker.mirror.hashicorp.services/circleci/golang:1.15
     working_directory: /go/src/github.com/hashicorp/vault-plugin-secrets-terraform
