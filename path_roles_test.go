@@ -17,6 +17,7 @@ const (
 )
 
 func TestTokenRole(t *testing.T) {
+	t.Skip()
 	b, s := getTestBackend(t)
 	organization := os.Getenv(envVarTerraformOrganization)
 	teamID := os.Getenv(envVarTerraformTeamID)
