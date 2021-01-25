@@ -1,4 +1,4 @@
-# HashiCorp Vault Terraform Secrets Engine
+# HashiCorp Vault Terraform Secrets Engine [![CircleCI](https://circleci.com/gh/hashicorp/vault-plugin-secrets-terraform.svg?style=svg)](https://circleci.com/gh/hashicorp/vault-plugin-secrets-terraform)
 
 The Terraform Secrets Engine is a plugin for HashiCorp Vault which generates
 dynamic [API tokens](https://www.terraform.io/docs/cloud/users-teams-organizations/api-tokens.html)
