@@ -92,7 +92,7 @@ func TestUserRole(t *testing.T) {
 	b, s := getTestBackend(t)
 	organization := os.Getenv(envVarTerraformOrganization)
 	teamID := os.Getenv(envVarTerraformTeamID)
-	userID := os.Getenv(envVarTerraformTeamID)
+	userID := os.Getenv(envVarTerraformUserID)
 
 	t.Run("Create User Role - fail", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
@@ -112,7 +112,7 @@ func TestUserRole(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.Nil(t, resp.Error())
-		assert.NotNil(t, resp)
+		assert.Nil(t, resp)
 	})
 	t.Run("Read User Role", func(t *testing.T) {
 		resp, err := testTokenRoleRead(t, b, s)

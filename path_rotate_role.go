@@ -33,8 +33,6 @@ func pathRotateRole(b *tfBackend) []*framework.Path {
 }
 
 func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	var resp logical.Response
-
 	name := d.Get("name").(string)
 	if name == "" {
 		return logical.ErrorResponse("missing role name"), nil
@@ -61,7 +59,7 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 		return nil, err
 	}
 
-	return &resp, nil
+	return nil, nil
 }
 
 const pathRotateRoleHelpSyn = `

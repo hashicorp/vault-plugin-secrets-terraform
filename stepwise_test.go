@@ -105,7 +105,8 @@ func testAccOrganizationRole(t *testing.T, roleName, orgName string) stepwise.St
 			"organization": orgName,
 		},
 		Assert: func(resp *api.Secret, err error) error {
-			assert.NotNil(t, resp)
+			assert.Nil(t, resp)
+			assert.Nil(t, err)
 			return nil
 		},
 	}
@@ -163,7 +164,8 @@ func testAccUserRole(t *testing.T, roleName, userID string) stepwise.Step {
 			"max_ttl": "5m",
 		},
 		Assert: func(resp *api.Secret, err error) error {
-			assert.NotNil(t, resp)
+			assert.Nil(t, resp)
+			assert.Nil(t, err)
 			return nil
 		},
 	}

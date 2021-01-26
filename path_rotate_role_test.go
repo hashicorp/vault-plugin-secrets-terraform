@@ -34,7 +34,7 @@ func (e *testEnv) RotateToken(t *testing.T) {
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
 	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-	assert.NotNil(t, resp)
+	assert.Nil(t, resp)
 }
 
 func (e *testEnv) VerifyTokenChange(t *testing.T) {
@@ -45,7 +45,7 @@ func (e *testEnv) VerifyTokenChange(t *testing.T) {
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
 	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-	assert.NotNil(t, resp)
+	assert.Nil(t, resp)
 
 	rotateReq := &logical.Request{
 		Operation: logical.ReadOperation,
