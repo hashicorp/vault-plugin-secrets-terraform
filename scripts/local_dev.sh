@@ -68,6 +68,7 @@ then
   . scripts/custom.sh
 fi
 
+echo ""
 echo "==> Ready!"
 wait $!
 
