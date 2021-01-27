@@ -2,7 +2,7 @@
 
 This is a standalone backend plugin for use with [Hashicorp
 Vault](https://www.github.com/hashicorp/vault). This plugin generates revocable,
-time-limited API tokens for Terraform Cloud users, as well as manages single API
+time-limited API tokens for [Terraform Cloud](https://www.terraform.io/cloud) users, as well as manages single API
 tokens for Terraform teams and Organizations. Please see Terraform Cloud's
 documentation on [API
 Tokens](https://www.terraform.io/docs/cloud/users-teams-organizations/api-tokens.html)
@@ -16,6 +16,7 @@ disclose_ by contacting us at
 
 ## Quick Links
 - [Vault Website](https://www.vaultproject.io)
+- [Terraform Cloud](https://www.terraform.io/cloud)
 - [Terraform Cloud Secrets
   Docs](https://www.vaultproject.io/docs/secrets/terraform/index.html)
 - [Terraform Cloud API token
@@ -45,7 +46,8 @@ This plugin is currently built into Vault and by default is accessed at
 `terraform`. To enable this in a running Vault server:
 
 ```sh 
-$ vault secrets enable terraform Success! Enabled the terraform secrets engine at: terraform/ 
+$ vault secrets enable terraform Success! 
+Enabled the terraform secrets engine at: terraform/ 
 ```
 
 
@@ -136,7 +138,7 @@ $ make test
 You can also specify a `TESTARGS` variable to filter tests like so:
 
 ```sh
-$ make test TESTARGS='--run=TestConfig'
+$ make test TESTARGS='--run=TestTokenRole'
 ```
 
 The tests assume environment variables are set to use in order to perform the
