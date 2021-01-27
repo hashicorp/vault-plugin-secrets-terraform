@@ -142,29 +142,25 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		roleEntry = &terraformRoleEntry{}
 	}
 
+	createOperation := (req.Operation == logical.CreateOperation)
+
 	roleEntry.Name = name
 	if organization, ok := d.GetOk("organization"); ok {
 		roleEntry.Organization = organization.(string)
-	} else if organization != nil {
+	} else if createOperation {
 		roleEntry.Organization = d.Get("organization").(string)
-	} else {
-		roleEntry.Organization = ""
 	}
 
 	if teamID, ok := d.GetOk("team_id"); ok {
 		roleEntry.TeamID = teamID.(string)
-	} else if teamID != nil {
+	} else if createOperation {
 		roleEntry.TeamID = d.Get("team_id").(string)
-	} else {
-		roleEntry.TeamID = ""
 	}
 
 	if userID, ok := d.GetOk("user_id"); ok {
 		roleEntry.UserID = userID.(string)
-	} else if userID != nil {
+	} else if createOperation {
 		roleEntry.UserID = d.Get("user_id").(string)
-	} else {
-		roleEntry.UserID = ""
 	}
 
 	if (roleEntry.Organization != "" || roleEntry.TeamID != "") && roleEntry.UserID != "" {

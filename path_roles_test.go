@@ -59,8 +59,6 @@ func TestTokenRole(t *testing.T) {
 		resp, err = testTokenRoleRead(t, b, s)
 		assert.NoError(t, err)
 		assert.Equal(t, roleName, resp.Data["name"])
-		// organization should be cleared now
-		assert.Empty(t, resp.Data["organization"])
 		assert.Equal(t, teamID, resp.Data["team_id"])
 		assert.Equal(t, float64(testTTL), resp.Data["ttl"])
 		assert.Equal(t, float64(testMaxTTL), resp.Data["max_ttl"])
@@ -115,6 +113,24 @@ func TestUserRole(t *testing.T) {
 		assert.Nil(t, resp)
 	})
 	t.Run("Read User Role", func(t *testing.T) {
+		resp, err := testTokenRoleRead(t, b, s)
+
+		assert.Nil(t, err)
+		assert.Nil(t, resp.Error())
+		assert.NotNil(t, resp)
+		assert.Equal(t, resp.Data["user_id"], userID)
+	})
+	t.Run("Update User Role", func(t *testing.T) {
+		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
+			"ttl":     "1m",
+			"max_ttl": "5h",
+		})
+
+		assert.Nil(t, err)
+		assert.Nil(t, resp.Error())
+		assert.Nil(t, resp)
+	})
+	t.Run("Re-read User Role", func(t *testing.T) {
 		resp, err := testTokenRoleRead(t, b, s)
 
 		assert.Nil(t, err)
