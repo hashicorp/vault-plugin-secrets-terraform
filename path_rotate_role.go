@@ -47,6 +47,10 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role entry"), nil
 	}
 
+	if roleEntry.UserID != "" {
+		return logical.ErrorResponse("cannot rotate credentials for user roles"), nil
+	}
+
 	// TODO: verify team/org
 	token, err := b.createToken(ctx, req.Storage, roleEntry)
 	if err != nil {
