@@ -189,7 +189,7 @@ func (e *testEnv) ReadUserToken(t *testing.T) {
 	}
 }
 
-func (e *testEnv) RevokeUserTokens(t *testing.T) {
+func (e *testEnv) CleanupUserTokens(t *testing.T) {
 	if len(e.TokenIDs) == 0 {
 		t.Fatalf("expected 2 tokens, got: %d", len(e.TokenIDs))
 	}
@@ -201,7 +201,7 @@ func (e *testEnv) RevokeUserTokens(t *testing.T) {
 			t.Fatal("fatal getting client")
 		}
 		if err := client.UserTokens.Delete(e.Context, id); err != nil {
-			t.Fatalf("unexpected error reading organization token: %s", err)
+			t.Fatalf("unexpected error deleting user token: %s", err)
 		}
 	}
 }
