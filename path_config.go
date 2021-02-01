@@ -121,7 +121,7 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		return nil, err
 	}
 
-	// TODO: Why is this called, which resets the client?
+	// reset the client so the next invocation will pick up the new configuration
 	b.reset()
 
 	return nil, nil

@@ -46,26 +46,26 @@ func (b *tfBackend) terraformToken() *framework.Secret {
 func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	roleName := d.Get("name").(string)
 
-	role, err := b.credentialRead(ctx, req.Storage, roleName)
+	roleEntry, err := b.getRole(ctx, req.Storage, roleName)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving role: %w", err)
 	}
 
-	if role == nil {
+	if roleEntry == nil {
 		return nil, errors.New("error retrieving role: role is nil")
 	}
 
-	if role.UserID != "" {
-		return b.createUserCreds(ctx, req, role)
+	if roleEntry.UserID != "" {
+		return b.createUserCreds(ctx, req, roleEntry)
 	}
 
 	resp := &logical.Response{
 		Data: map[string]interface{}{
-			"token_id":     role.TokenID,
-			"token":        role.Token,
-			"organization": role.Organization,
-			"team_id":      role.TeamID,
-			"role":         role.Name,
+			"token_id":     roleEntry.TokenID,
+			"token":        roleEntry.Token,
+			"organization": roleEntry.Organization,
+			"team_id":      roleEntry.TeamID,
+			"role":         roleEntry.Name,
 		},
 	}
 	return resp, nil
@@ -124,27 +124,6 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntr
 	}
 
 	return token, nil
-}
-
-func (b *tfBackend) credentialRead(ctx context.Context, s logical.Storage, roleName string) (*terraformRoleEntry, error) {
-	if roleName == "" {
-		return nil, errors.New("missing role name")
-	}
-
-	entry, err := s.Get(ctx, "role/"+roleName)
-	if err != nil {
-		return nil, err
-	}
-
-	var roleEntry terraformRoleEntry
-	if entry != nil {
-		if err := entry.DecodeJSON(&roleEntry); err != nil {
-			return nil, err
-		}
-		return &roleEntry, nil
-	}
-
-	return nil, nil
 }
 
 const pathCredentialsHelpSyn = `

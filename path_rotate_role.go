@@ -38,7 +38,7 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role name"), nil
 	}
 
-	roleEntry, err := getRole(ctx, req.Storage, name)
+	roleEntry, err := b.getRole(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
 	}

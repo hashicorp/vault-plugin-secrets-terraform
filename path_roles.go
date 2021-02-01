@@ -52,7 +52,6 @@ func pathRole(b *tfBackend) []*framework.Path {
 				"organization": {
 					Type:        framework.TypeString,
 					Description: "Name of the Terraform Cloud or Enterprise organization",
-					Required:    true,
 				},
 				"team_id": {
 					Type:        framework.TypeString,
@@ -113,7 +112,7 @@ func (b *tfBackend) pathRolesList(ctx context.Context, req *logical.Request, d *
 }
 
 func (b *tfBackend) pathRolesRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	entry, err := getRole(ctx, req.Storage, d.Get("name").(string))
+	entry, err := b.getRole(ctx, req.Storage, d.Get("name").(string))
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +132,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role name"), nil
 	}
 
-	roleEntry, err := getRole(ctx, req.Storage, name)
+	roleEntry, err := b.getRole(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +234,7 @@ func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleE
 	return nil
 }
 
-func getRole(ctx context.Context, s logical.Storage, name string) (*terraformRoleEntry, error) {
+func (b *tfBackend) getRole(ctx context.Context, s logical.Storage, name string) (*terraformRoleEntry, error) {
 	if name == "" {
 		return nil, fmt.Errorf("missing role name")
 	}

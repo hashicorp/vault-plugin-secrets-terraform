@@ -12,8 +12,6 @@ import (
 )
 
 const (
-	defaultLeaseTTLHr           = 1
-	maxLeaseTTLHr               = 12
 	envVarRunAccTests           = "VAULT_ACC"
 	envVarTerraformToken        = "TEST_TF_TOKEN"
 	envVarTerraformOrganization = "TEST_TF_ORGANIZATION"

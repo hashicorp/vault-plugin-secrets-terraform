@@ -132,24 +132,24 @@ func (b *tfBackend) terraformTokenRenew(ctx context.Context, req *logical.Reques
 		return nil, fmt.Errorf("secret is missing token id internal data")
 	}
 
-	// get the credential entry
+	// get the role entry
 	role := roleRaw.(string)
-	cred, err := b.credentialRead(ctx, req.Storage, role)
+	roleEntry, err := b.getRole(ctx, req.Storage, role)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving role: %w", err)
 	}
 
-	if cred == nil {
+	if roleEntry == nil {
 		return nil, errors.New("error retrieving role: role is nil")
 	}
 
 	resp := &logical.Response{Secret: req.Secret}
 
-	if cred.TTL > 0 {
-		resp.Secret.TTL = cred.MaxTTL
+	if roleEntry.TTL > 0 {
+		resp.Secret.TTL = roleEntry.MaxTTL
 	}
-	if cred.MaxTTL > 0 {
-		resp.Secret.MaxTTL = cred.MaxTTL
+	if roleEntry.MaxTTL > 0 {
+		resp.Secret.MaxTTL = roleEntry.MaxTTL
 	}
 
 	return resp, nil
