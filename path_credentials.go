@@ -99,7 +99,6 @@ func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, r
 func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntry *terraformRoleEntry) (*terraformToken, error) {
 	client, err := b.getClient(ctx, s)
 	if err != nil {
-		// return logical.ErrorResponse(err.Error()), nil
 		return nil, err
 	}
 
@@ -115,7 +114,6 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntr
 	}
 
 	if err != nil {
-		// return logical.ErrorResponse("Error creating Terraform token: %s", err), err
 		return nil, fmt.Errorf("error creating Terraform token: %w", err)
 	}
 
