@@ -129,7 +129,7 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 func (b *tfBackend) terraformTokenRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	roleRaw, ok := req.Secret.InternalData["role"]
 	if !ok {
-		return nil, fmt.Errorf("secret is missing token id internal data")
+		return nil, fmt.Errorf("secret is missing role internal data")
 	}
 
 	// get the role entry
