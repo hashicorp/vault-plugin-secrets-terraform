@@ -14,7 +14,7 @@ func main() {
 	flags := apiClientMeta.FlagSet()
 	logger := hclog.New(&hclog.LoggerOptions{})
 	if err := flags.Parse(os.Args[1:]); err != nil {
-		logger.Error("plugin shutting down", "error", err)
+		logger.Error("error parsing arguments", "error", err)
 		os.Exit(1)
 	}
 
