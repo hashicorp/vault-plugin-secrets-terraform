@@ -248,14 +248,10 @@ func (b *tfBackend) getRole(ctx context.Context, s logical.Storage, name string)
 
 	var role terraformRoleEntry
 
-	if entry != nil {
-		if err := entry.DecodeJSON(&role); err != nil {
-			return nil, err
-		}
-		return &role, nil
+	if err := entry.DecodeJSON(&role); err != nil {
+		return nil, err
 	}
-
-	return nil, nil
+	return &role, nil
 }
 
 const (
