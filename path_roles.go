@@ -168,7 +168,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		}
 	}
 
-	if roleEntry.UserID == "" && (roleEntry.Organization == "" && roleEntry.TeamID == "") {
+	if roleEntry.UserID == "" && roleEntry.Organization == "" && roleEntry.TeamID == "" {
 		return logical.ErrorResponse("must provide an organization name, team id, or user id"), nil
 	}
 
