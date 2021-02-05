@@ -162,10 +162,8 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		roleEntry.UserID = d.Get("user_id").(string)
 	}
 
-	if roleEntry.UserID != "" {
-		if roleEntry.Organization != "" || roleEntry.TeamID != "" {
-			return logical.ErrorResponse("cannot provide a user_id in combination with organization or team_id"), nil
-		}
+	if roleEntry.UserID != "" && (roleEntry.Organization != "" || roleEntry.TeamID != "") {
+		return logical.ErrorResponse("cannot provide a user_id in combination with organization or team_id"), nil
 	}
 
 	if roleEntry.UserID == "" && roleEntry.Organization == "" && roleEntry.TeamID == "" {
