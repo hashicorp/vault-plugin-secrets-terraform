@@ -129,12 +129,13 @@ Generate a Terraform Cloud or Enterprise API token from a specific Vault role.
 `
 
 const pathCredentialsHelpDesc = `
-This path generates Terraform Cloud or Enterprise API Organization or Team
-Token based on a particular role.
+This path generates Terraform Cloud or Enterprise API Organization, Team, or
+User Tokens based on a particular role.
 
-If the role has the organization and team ID configured,
-this path generates a team token.
+If the role has the team ID configured, this path generates a team token.
 
 If this role only has the organization configured, this path generates an
 organization token.
+
+If this role has a user ID configured, this path generates a user token.
 `
