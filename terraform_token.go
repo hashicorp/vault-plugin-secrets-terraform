@@ -75,6 +75,15 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 		return nil, fmt.Errorf("error getting client: %w", err)
 	}
 
+	organization := ""
+	organizationRaw, ok := req.Secret.InternalData["organization"]
+	if ok {
+		organization, ok = organizationRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("secret is missing organization internal data")
+		}
+	}
+
 	teamID := ""
 	teamIDRaw, ok := req.Secret.InternalData["team_id"]
 	if ok {
@@ -83,15 +92,6 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 			return nil, fmt.Errorf("secret is missing team_id internal data")
 		}
 
-	}
-
-	organization := ""
-	organizationRaw, ok := req.Secret.InternalData["organization"]
-	if ok {
-		organization, ok = organizationRaw.(string)
-		if !ok {
-			return nil, fmt.Errorf("secret is missing organization internal data")
-		}
 	}
 
 	if isOrgToken(organization, teamID) {
