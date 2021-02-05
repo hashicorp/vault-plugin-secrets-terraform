@@ -222,7 +222,7 @@ func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleE
 	}
 
 	if entry == nil {
-		return fmt.Errorf("nil result writing to storage")
+		return fmt.Errorf("failed to create storage entry for role")
 	}
 
 	if err := s.Put(ctx, entry); err != nil {
