@@ -80,7 +80,7 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 	if ok {
 		organization, ok = organizationRaw.(string)
 		if !ok {
-			return nil, fmt.Errorf("secret is missing organization internal data")
+			return nil, fmt.Errorf("invalid value for organization in secret internal data")
 		}
 	}
 
@@ -89,7 +89,7 @@ func (b *tfBackend) terraformTokenRevoke(ctx context.Context, req *logical.Reque
 	if ok {
 		teamID, ok = teamIDRaw.(string)
 		if !ok {
-			return nil, fmt.Errorf("secret is missing team_id internal data")
+			return nil, fmt.Errorf("invalid value for team_id in secret internal data")
 		}
 
 	}
