@@ -58,7 +58,7 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 
 	roleEntry.Token = token.Token
 
-	if err := setTerraformRole(ctx, req.Storage, name, roleEntry); err != nil {
+	if err := setRole(ctx, req.Storage, name, roleEntry); err != nil {
 		return nil, err
 	}
 

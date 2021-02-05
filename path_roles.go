@@ -199,7 +199,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		roleEntry.TokenID = token.ID
 	}
 
-	if err := setTerraformRole(ctx, req.Storage, name, roleEntry); err != nil {
+	if err := setRole(ctx, req.Storage, name, roleEntry); err != nil {
 		return nil, err
 	}
 
@@ -215,7 +215,7 @@ func (b *tfBackend) pathRolesDelete(ctx context.Context, req *logical.Request, d
 	return nil, nil
 }
 
-func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleEntry *terraformRoleEntry) error {
+func setRole(ctx context.Context, s logical.Storage, name string, roleEntry *terraformRoleEntry) error {
 	entry, err := logical.StorageEntryJSON("role/"+name, roleEntry)
 	if err != nil {
 		return err
