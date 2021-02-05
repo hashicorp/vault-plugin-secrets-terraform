@@ -70,5 +70,6 @@ Request to rotate the credentials for a team or organization.
 `
 
 const pathRotateRoleHelpDesc = `
-This path attempts to rotate the credentials for the given team or organization role
+This path attempts to rotate the credentials for the given team or organization role. 
+This endpoint returns an error if attempting to rotate a user role.
 `
