@@ -2,7 +2,6 @@ package tfc
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -64,8 +63,8 @@ func (e *testEnv) AddConfig(t *testing.T) {
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
 	assert.Nil(t, resp)
+	assert.Nil(t, err)
 }
 
 func (e *testEnv) AddOrgTokenRole(t *testing.T) {
@@ -78,7 +77,8 @@ func (e *testEnv) AddOrgTokenRole(t *testing.T) {
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	assert.Nil(t, resp)
+	assert.Nil(t, err)
 }
 
 func (e *testEnv) ReadOrgToken(t *testing.T) {
@@ -88,8 +88,8 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
 	assert.NotNil(t, resp)
+	assert.Nil(t, err)
 	assert.NotEmpty(t, resp.Data["token"])
 
 	if t, ok := resp.Data["token"]; ok {
@@ -119,7 +119,8 @@ func (e *testEnv) AddTeamTokenRole(t *testing.T) {
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	assert.Nil(t, err)
+	assert.Nil(t, resp)
 }
 
 func (e *testEnv) ReadTeamToken(t *testing.T) {
@@ -129,7 +130,7 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.NotEmpty(t, resp.Data["token"])
 
@@ -159,7 +160,8 @@ func (e *testEnv) AddUserTokenRole(t *testing.T) {
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	assert.Nil(t, resp)
+	assert.Nil(t, err)
 }
 
 func (e *testEnv) ReadUserToken(t *testing.T) {
@@ -169,7 +171,7 @@ func (e *testEnv) ReadUserToken(t *testing.T) {
 		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	if t, ok := resp.Data["token_id"]; ok {
 		e.TokenIDs = append(e.TokenIDs, t.(string))
