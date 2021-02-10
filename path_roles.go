@@ -257,15 +257,18 @@ func (b *tfBackend) getRole(ctx context.Context, s logical.Storage, name string)
 const (
 	pathRoleHelpSynopsis    = `Manages the Vault role for generating Terraform Cloud / Enterprise tokens.`
 	pathRoleHelpDescription = `
-This path allows you to read and write roles used to generate Terraform Cloud / Enterprise tokens.
-You can configure an organization token (for configuring an organization)
-or a team token (for a team to plan and apply Terraform).
+This path allows you to read and write roles used to generate Terraform Cloud /
+Enterprise tokens. You can configure a role to manage an organization's token, a
+team's token, or a user's dynamic tokens.
 
-To configure a team token,
-set the organization and team fields for the role.
+A Terraform Cloud/Enterprise Organization can only have one active token at a
+time. To manage an Organization's token, set the organization field.
 
-To configure the organization
-token, set the organization field.
+A Terraform Cloud/Enterprise Team can only have one active token at a time. To
+manage a Teams's token, set the team_id field.
+
+A Terraform Cloud/Enterprise User can have multiple API tokens. To manage a
+User's token, set the user_id field.
 `
 
 	pathRoleListHelpSynopsis    = `List the existing roles in Terraform Cloud / Enterprise backend`
