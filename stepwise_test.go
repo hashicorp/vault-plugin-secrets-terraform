@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/testing/stepwise"
 	dockerEnvironment "github.com/hashicorp/vault/sdk/testing/stepwise/environments/docker"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAccOrganizationToken(t *testing.T) {
@@ -105,8 +105,8 @@ func testAccOrganizationRole(t *testing.T, roleName, orgName string) stepwise.St
 			"organization": orgName,
 		},
 		Assert: func(resp *api.Secret, err error) error {
-			assert.Nil(t, resp)
-			assert.Nil(t, err)
+			require.Nil(t, resp)
+			require.Nil(t, err)
 			return nil
 		},
 	}
@@ -117,8 +117,8 @@ func testAccOrganizationRoleRead(t *testing.T, roleName, orgName string) stepwis
 		Operation: stepwise.ReadOperation,
 		Path:      "role/" + roleName,
 		Assert: func(resp *api.Secret, err error) error {
-			assert.NotNil(t, resp)
-			assert.Equal(t, orgName, resp.Data["organization"])
+			require.NotNil(t, resp)
+			require.Equal(t, orgName, resp.Data["organization"])
 			return nil
 		},
 	}
@@ -129,8 +129,8 @@ func testAccOrganizationCredRead(t *testing.T, roleName string, orgToken *string
 		Operation: stepwise.ReadOperation,
 		Path:      "creds/" + roleName,
 		Assert: func(resp *api.Secret, err error) error {
-			assert.NotNil(t, resp)
-			assert.NotEmpty(t, resp.Data["token"])
+			require.NotNil(t, resp)
+			require.NotEmpty(t, resp.Data["token"])
 			*orgToken = resp.Data["token"].(string)
 			return nil
 		},
@@ -142,10 +142,10 @@ func testAccOrganizationCredReRead(t *testing.T, roleName string, orgToken *stri
 		Operation: stepwise.ReadOperation,
 		Path:      "creds/" + roleName,
 		Assert: func(resp *api.Secret, err error) error {
-			assert.NotNil(t, resp)
-			assert.NotEmpty(t, resp.Data["token"])
+			require.NotNil(t, resp)
+			require.NotEmpty(t, resp.Data["token"])
 			if *orgToken != "" {
-				assert.Equal(t, *orgToken, resp.Data["token"].(string))
+				require.Equal(t, *orgToken, resp.Data["token"].(string))
 			} else {
 				t.Fatal("expected orgToken to have a value")
 			}
@@ -164,8 +164,8 @@ func testAccUserRole(t *testing.T, roleName, userID string) stepwise.Step {
 			"max_ttl": "5m",
 		},
 		Assert: func(resp *api.Secret, err error) error {
-			assert.Nil(t, resp)
-			assert.Nil(t, err)
+			require.Nil(t, resp)
+			require.Nil(t, err)
 			return nil
 		},
 	}
@@ -176,8 +176,8 @@ func testAccUserRoleRead(t *testing.T, roleName, userID string) stepwise.Step {
 		Operation: stepwise.ReadOperation,
 		Path:      "role/" + roleName,
 		Assert: func(resp *api.Secret, err error) error {
-			assert.NotNil(t, resp)
-			assert.Equal(t, userID, resp.Data["user_id"])
+			require.NotNil(t, resp)
+			require.Equal(t, userID, resp.Data["user_id"])
 			return nil
 		},
 	}
@@ -188,10 +188,10 @@ func testAccUserCredReRead(t *testing.T, roleName string, userToken *string) ste
 		Operation: stepwise.ReadOperation,
 		Path:      "creds/" + roleName,
 		Assert: func(resp *api.Secret, err error) error {
-			assert.NotNil(t, resp)
-			assert.NotEmpty(t, resp.Data["token"])
+			require.NotNil(t, resp)
+			require.NotEmpty(t, resp.Data["token"])
 			if *userToken != "" {
-				assert.NotEqual(t, *userToken, resp.Data["token"].(string))
+				require.NotEqual(t, *userToken, resp.Data["token"].(string))
 			}
 			*userToken = resp.Data["token"].(string)
 			return nil

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestAcceptanceRotateRole tests rotating the API token for teams and orgs
@@ -33,8 +33,8 @@ func (e *testEnv) RotateToken(t *testing.T) {
 		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-	assert.Nil(t, resp)
+	require.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	require.Nil(t, resp)
 }
 
 func (e *testEnv) VerifyTokenChange(t *testing.T) {
@@ -44,8 +44,8 @@ func (e *testEnv) VerifyTokenChange(t *testing.T) {
 		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-	assert.Nil(t, resp)
+	require.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	require.Nil(t, resp)
 
 	rotateReq := &logical.Request{
 		Operation: logical.ReadOperation,
@@ -53,13 +53,13 @@ func (e *testEnv) VerifyTokenChange(t *testing.T) {
 		Storage:   e.Storage,
 	}
 	resp, err = e.Backend.HandleRequest(e.Context, rotateReq)
-	assert.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
-	assert.NotNil(t, resp)
-	assert.NotEmpty(t, resp.Data["token"])
+	require.False(t, (err != nil || (resp != nil && resp.IsError())), fmt.Sprintf("bad: resp: %#v\nerr:%v", resp, err))
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.Data["token"])
 
 	if tRaw, ok := resp.Data["token"]; ok {
 		token := tRaw.(string)
-		assert.NotEqual(t, e.SecretToken, token)
+		require.NotEqual(t, e.SecretToken, token)
 	} else {
 		t.Fatalf("expected token, but found none")
 	}

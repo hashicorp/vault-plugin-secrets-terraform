@@ -7,7 +7,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -63,8 +63,8 @@ func (e *testEnv) AddConfig(t *testing.T) {
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.Nil(t, resp)
-	assert.Nil(t, err)
+	require.Nil(t, resp)
+	require.Nil(t, err)
 }
 
 func (e *testEnv) AddOrgTokenRole(t *testing.T) {
@@ -77,8 +77,8 @@ func (e *testEnv) AddOrgTokenRole(t *testing.T) {
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.Nil(t, resp)
-	assert.Nil(t, err)
+	require.Nil(t, resp)
+	require.Nil(t, err)
 }
 
 func (e *testEnv) ReadOrgToken(t *testing.T) {
@@ -88,9 +88,9 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.NotNil(t, resp)
-	assert.Nil(t, err)
-	assert.NotEmpty(t, resp.Data["token"])
+	require.NotNil(t, resp)
+	require.Nil(t, err)
+	require.NotEmpty(t, resp.Data["token"])
 
 	if t, ok := resp.Data["token"]; ok {
 		e.SecretToken = t.(string)
@@ -105,7 +105,7 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error reading organization token: %s", err)
 	}
-	assert.NotNil(t, ot)
+	require.NotNil(t, ot)
 }
 
 func (e *testEnv) AddTeamTokenRole(t *testing.T) {
@@ -119,8 +119,8 @@ func (e *testEnv) AddTeamTokenRole(t *testing.T) {
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.Nil(t, err)
-	assert.Nil(t, resp)
+	require.Nil(t, err)
+	require.Nil(t, resp)
 }
 
 func (e *testEnv) ReadTeamToken(t *testing.T) {
@@ -130,9 +130,9 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.Nil(t, err)
-	assert.NotNil(t, resp)
-	assert.NotEmpty(t, resp.Data["token"])
+	require.Nil(t, err)
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.Data["token"])
 
 	// verify there is a token
 	b := e.Backend.(*tfBackend)
@@ -144,7 +144,7 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error reading team token: %s", err)
 	}
-	assert.NotNil(t, tt)
+	require.NotNil(t, tt)
 	if t, ok := resp.Data["token"]; ok {
 		e.SecretToken = t.(string)
 	}
@@ -160,8 +160,8 @@ func (e *testEnv) AddUserTokenRole(t *testing.T) {
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.Nil(t, resp)
-	assert.Nil(t, err)
+	require.Nil(t, resp)
+	require.Nil(t, err)
 }
 
 func (e *testEnv) ReadUserToken(t *testing.T) {
@@ -171,19 +171,19 @@ func (e *testEnv) ReadUserToken(t *testing.T) {
 		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
-	assert.Nil(t, err)
-	assert.NotNil(t, resp)
+	require.Nil(t, err)
+	require.NotNil(t, resp)
 	if t, ok := resp.Data["token_id"]; ok {
 		e.TokenIDs = append(e.TokenIDs, t.(string))
 	}
-	assert.NotEmpty(t, resp.Data["token"])
+	require.NotEmpty(t, resp.Data["token"])
 
 	if e.SecretToken != "" {
-		assert.NotEqual(t, e.SecretToken, resp.Data["token"])
+		require.NotEqual(t, e.SecretToken, resp.Data["token"])
 	}
 
 	// collect secret IDs to revoke at end of test
-	assert.NotNil(t, resp.Secret)
+	require.NotNil(t, resp.Secret)
 	if t, ok := resp.Secret.InternalData["token_id"]; ok {
 		e.SecretToken = t.(string)
 	}

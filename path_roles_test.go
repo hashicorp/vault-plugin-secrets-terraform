@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -29,46 +29,46 @@ func TestTokenRole(t *testing.T) {
 					"organization": organization,
 				},
 			)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
 		resp, err := testTokenRoleList(t, b, s)
-		assert.NoError(t, err)
-		assert.Len(t, resp.Data["keys"].([]string), 10)
+		require.NoError(t, err)
+		require.Len(t, resp.Data["keys"].([]string), 10)
 	})
 
 	t.Run("Test Token Roles", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
 			"organization": organization,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		resp, err = testTokenRoleRead(t, b, s)
-		assert.NoError(t, err)
-		assert.Equal(t, roleName, resp.Data["name"])
-		assert.Equal(t, organization, resp.Data["organization"])
-		assert.Empty(t, resp.Data["team_id"])
+		require.NoError(t, err)
+		require.Equal(t, roleName, resp.Data["name"])
+		require.Equal(t, organization, resp.Data["organization"])
+		require.Empty(t, resp.Data["team_id"])
 
 		resp, err = testTokenRoleUpdate(t, b, s, map[string]interface{}{
 			"team_id": teamID,
 			"ttl":     testTTL,
 			"max_ttl": testMaxTTL,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		resp, err = testTokenRoleRead(t, b, s)
-		assert.NoError(t, err)
-		assert.Equal(t, roleName, resp.Data["name"])
-		assert.Equal(t, teamID, resp.Data["team_id"])
-		assert.Equal(t, float64(testTTL), resp.Data["ttl"])
-		assert.Equal(t, float64(testMaxTTL), resp.Data["max_ttl"])
+		require.NoError(t, err)
+		require.Equal(t, roleName, resp.Data["name"])
+		require.Equal(t, teamID, resp.Data["team_id"])
+		require.Equal(t, float64(testTTL), resp.Data["ttl"])
+		require.Equal(t, float64(testMaxTTL), resp.Data["max_ttl"])
 
 		_, err = testTokenRoleDelete(t, b, s)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		resp, err = testTokenRoleRead(t, b, s)
-		assert.NoError(t, err)
-		assert.Nil(t, err)
+		require.NoError(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("Create Team Token Role", func(t *testing.T) {
@@ -76,13 +76,13 @@ func TestTokenRole(t *testing.T) {
 			"organization": organization,
 			"team_id":      teamID,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		resp, err = testTokenRoleRead(t, b, s)
-		assert.NoError(t, err)
-		assert.Equal(t, roleName, resp.Data["name"])
-		assert.Equal(t, organization, resp.Data["organization"])
-		assert.Equal(t, teamID, resp.Data["team_id"])
+		require.NoError(t, err)
+		require.Equal(t, roleName, resp.Data["name"])
+		require.Equal(t, organization, resp.Data["organization"])
+		require.Equal(t, teamID, resp.Data["team_id"])
 	})
 }
 
@@ -98,9 +98,9 @@ func TestUserRole(t *testing.T) {
 			// user_id cannot be combined with organization or team
 			"user_id": teamID,
 		})
-		assert.Nil(t, err)
+		require.Nil(t, err)
 
-		assert.Error(t, resp.Error())
+		require.Error(t, resp.Error())
 	})
 	t.Run("Create User Role - pass", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
@@ -108,17 +108,17 @@ func TestUserRole(t *testing.T) {
 			"max_ttl": "3600",
 		})
 
-		assert.Nil(t, err)
-		assert.Nil(t, resp.Error())
-		assert.Nil(t, resp)
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.Nil(t, resp)
 	})
 	t.Run("Read User Role", func(t *testing.T) {
 		resp, err := testTokenRoleRead(t, b, s)
 
-		assert.Nil(t, err)
-		assert.Nil(t, resp.Error())
-		assert.NotNil(t, resp)
-		assert.Equal(t, resp.Data["user_id"], userID)
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.NotNil(t, resp)
+		require.Equal(t, resp.Data["user_id"], userID)
 	})
 	t.Run("Update User Role", func(t *testing.T) {
 		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
@@ -126,17 +126,17 @@ func TestUserRole(t *testing.T) {
 			"max_ttl": "5h",
 		})
 
-		assert.Nil(t, err)
-		assert.Nil(t, resp.Error())
-		assert.Nil(t, resp)
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.Nil(t, resp)
 	})
 	t.Run("Re-read User Role", func(t *testing.T) {
 		resp, err := testTokenRoleRead(t, b, s)
 
-		assert.Nil(t, err)
-		assert.Nil(t, resp.Error())
-		assert.NotNil(t, resp)
-		assert.Equal(t, resp.Data["user_id"], userID)
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.NotNil(t, resp)
+		require.Equal(t, resp.Data["user_id"], userID)
 	})
 }
 
