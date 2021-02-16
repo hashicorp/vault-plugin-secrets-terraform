@@ -150,7 +150,7 @@ func (b *tfBackend) terraformTokenRenew(ctx context.Context, req *logical.Reques
 	resp := &logical.Response{Secret: req.Secret}
 
 	if roleEntry.TTL > 0 {
-		resp.Secret.TTL = roleEntry.MaxTTL
+		resp.Secret.TTL = roleEntry.TTL
 	}
 	if roleEntry.MaxTTL > 0 {
 		resp.Secret.MaxTTL = roleEntry.MaxTTL
