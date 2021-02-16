@@ -1,4 +1,4 @@
-package tfsecrets
+package tfc
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfig(t *testing.T) {
@@ -17,32 +17,32 @@ func TestConfig(t *testing.T) {
 			"token": "token123",
 		})
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
 			"base_path": "/api/v2/",
 			"address":   "https://app.terraform.io",
 		})
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 			"address":   "https://tfe.local",
 			"base_path": "/v1/",
 		})
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
 			"base_path": "/v1/",
 			"address":   "https://tfe.local",
 		})
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = testConfigDelete(t, b, reqStorage)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 

@@ -1,11 +1,10 @@
-package tfsecrets
+package tfc
 
 import (
 	"context"
 	"errors"
-	"time"
+	"fmt"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -39,39 +38,68 @@ func (b *tfBackend) terraformToken() *framework.Secret {
 				Description: "Terraform Token",
 			},
 		},
-		Renew:  b.terraformTokenRenew,
 		Revoke: b.terraformTokenRevoke,
+		Renew:  b.terraformTokenRenew,
 	}
 }
 
 func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	roleName := d.Get("name").(string)
 
-	role, err := b.credentialRead(ctx, req.Storage, roleName)
+	roleEntry, err := b.getRole(ctx, req.Storage, roleName)
 	if err != nil {
-		return nil, errwrap.Wrapf("error retrieving role: {{err}}", err)
+		return nil, fmt.Errorf("error retrieving role: %w", err)
 	}
 
-	if role == nil {
+	if roleEntry == nil {
 		return nil, errors.New("error retrieving role: role is nil")
 	}
 
-	return b.createToken(ctx, req.Storage, roleName, role)
-}
-
-func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName string, roleEntry *terraformRoleEntry) (*logical.Response, error) {
-	client, err := b.getClient(ctx, s)
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+	if roleEntry.UserID != "" {
+		return b.createUserCreds(ctx, req, roleEntry)
 	}
 
-	walID, err := framework.PutWAL(ctx, s, terraformTokenType, &walEntry{
-		Organization: roleEntry.Organization,
-		TeamID:       roleEntry.TeamID,
-		Expiration:   time.Now().Add(maxWALAge),
-	})
+	resp := &logical.Response{
+		Data: map[string]interface{}{
+			"token_id":     roleEntry.TokenID,
+			"token":        roleEntry.Token,
+			"organization": roleEntry.Organization,
+			"team_id":      roleEntry.TeamID,
+			"role":         roleEntry.Name,
+		},
+	}
+	return resp, nil
+}
+
+func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, role *terraformRoleEntry) (*logical.Response, error) {
+	token, err := b.createToken(ctx, req.Storage, role)
 	if err != nil {
-		return nil, errwrap.Wrapf("error writing WAL entry: {{err}}", err)
+		return nil, err
+	}
+
+	resp := b.Secret(terraformTokenType).Response(map[string]interface{}{
+		"token":    token.Token,
+		"token_id": token.ID,
+	}, map[string]interface{}{
+		"token_id": token.ID,
+		"role":     role.Name,
+	})
+
+	if role.TTL > 0 {
+		resp.Secret.TTL = role.TTL
+	}
+
+	if role.MaxTTL > 0 {
+		resp.Secret.MaxTTL = role.MaxTTL
+	}
+
+	return resp, nil
+}
+
+func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntry *terraformRoleEntry) (*terraformToken, error) {
+	client, err := b.getClient(ctx, s)
+	if err != nil {
+		return nil, err
 	}
 
 	var token *terraformToken
@@ -79,62 +107,21 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleName
 	switch {
 	case isOrgToken(roleEntry.Organization, roleEntry.TeamID):
 		token, err = createOrgToken(ctx, client, roleEntry.Organization)
-	case isTeamToken(roleEntry.Organization, roleEntry.TeamID):
+	case isTeamToken(roleEntry.TeamID):
 		token, err = createTeamToken(ctx, client, roleEntry.TeamID)
+	default:
+		token, err = createUserToken(ctx, client, roleEntry.UserID)
 	}
 
 	if err != nil {
-		return logical.ErrorResponse("Error creating Terraform token: %s", err), err
+		return nil, fmt.Errorf("error creating Terraform token: %w", err)
 	}
 
 	if token == nil {
 		return nil, errors.New("error creating Terraform token")
 	}
 
-	if err := framework.DeleteWAL(ctx, s, walID); err != nil {
-		return nil, errwrap.Wrapf("error deleting WAL: {{err}}", err)
-	}
-
-	resp := b.Secret(terraformTokenType).Response(map[string]interface{}{
-		"token": token.Token,
-	}, map[string]interface{}{
-		"token_id":     token.ID,
-		"organization": roleEntry.Organization,
-		"team_id":      roleEntry.TeamID,
-		"role":         roleName,
-		"description":  token.Description,
-	})
-
-	if roleEntry.TTL > 0 {
-		resp.Secret.TTL = roleEntry.TTL
-	}
-
-	if roleEntry.MaxTTL > 0 {
-		resp.Secret.MaxTTL = roleEntry.MaxTTL
-	}
-
-	return resp, nil
-}
-
-func (b *tfBackend) credentialRead(ctx context.Context, s logical.Storage, roleName string) (*terraformRoleEntry, error) {
-	if roleName == "" {
-		return nil, errors.New("missing role name")
-	}
-
-	entry, err := s.Get(ctx, "roles/"+roleName)
-	if err != nil {
-		return nil, err
-	}
-
-	var roleEntry terraformRoleEntry
-	if entry != nil {
-		if err := entry.DecodeJSON(&roleEntry); err != nil {
-			return nil, err
-		}
-		return &roleEntry, nil
-	}
-
-	return nil, nil
+	return token, nil
 }
 
 const pathCredentialsHelpSyn = `
@@ -142,12 +129,15 @@ Generate a Terraform Cloud or Enterprise API token from a specific Vault role.
 `
 
 const pathCredentialsHelpDesc = `
-This path generates Terraform Cloud or Enterprise API Organization or Team
-Token based on a particular role.
+This path generates Terraform Cloud or Enterprise API Organization, Team, or
+User Tokens based on a particular role. A role can only represent a single type
+of Token; Organization, Team, or User, and so can only contain one parameter for
+organization, team_id, or user_id.
 
-If the role has the organization and team ID configured,
-this path generates a team token.
+If the role has the team ID configured, this path generates a team token.
 
 If this role only has the organization configured, this path generates an
 organization token.
+
+If this role has a user ID configured, this path generates a user token.
 `

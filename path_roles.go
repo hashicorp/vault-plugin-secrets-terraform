@@ -1,10 +1,10 @@
-package tfsecrets
+package tfc
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -12,19 +12,29 @@ import (
 // terraformRoleEntry is a Vault role construct that maps to TFC/TFE
 type terraformRoleEntry struct {
 	Name         string        `json:"name"`
-	Organization string        `json:"organization"`
-	TeamID       string        `json:"team_id"`
+	Organization string        `json:"organization,omitempty"`
+	TeamID       string        `json:"team_id,omitempty"`
+	UserID       string        `json:"user_id,omitempty"`
 	TTL          time.Duration `json:"ttl"`
 	MaxTTL       time.Duration `json:"max_ttl"`
+	Token        string        `json:"token,omitempty"`
+	TokenID      string        `json:"token_id,omitempty"`
 }
 
-func (r terraformRoleEntry) toResponseData() map[string]interface{} {
+func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
 	respData := map[string]interface{}{
-		"name":         r.Name,
-		"organization": r.Organization,
-		"team_id":      r.TeamID,
-		"ttl":          r.TTL.Seconds(),
-		"max_ttl":      r.MaxTTL.Seconds(),
+		"name":    r.Name,
+		"ttl":     r.TTL.Seconds(),
+		"max_ttl": r.MaxTTL.Seconds(),
+	}
+	if r.Organization != "" {
+		respData["organization"] = r.Organization
+	}
+	if r.TeamID != "" {
+		respData["team_id"] = r.TeamID
+	}
+	if r.UserID != "" {
+		respData["user_id"] = r.UserID
 	}
 	return respData
 }
@@ -32,7 +42,7 @@ func (r terraformRoleEntry) toResponseData() map[string]interface{} {
 func pathRole(b *tfBackend) []*framework.Path {
 	return []*framework.Path{
 		{
-			Pattern: "roles/" + framework.GenericNameRegex("name"),
+			Pattern: "role/" + framework.GenericNameRegex("name"),
 			Fields: map[string]*framework.FieldSchema{
 				"name": {
 					Type:        framework.TypeLowerCaseString,
@@ -42,11 +52,14 @@ func pathRole(b *tfBackend) []*framework.Path {
 				"organization": {
 					Type:        framework.TypeString,
 					Description: "Name of the Terraform Cloud or Enterprise organization",
-					Required:    true,
 				},
 				"team_id": {
 					Type:        framework.TypeString,
 					Description: "ID of the Terraform Cloud or Enterprise team under organization (e.g., settings/teams/team-xxxxxxxxxxxxx)",
+				},
+				"user_id": {
+					Type:        framework.TypeString,
+					Description: "ID of the Terraform Cloud or Enterprise user (e.g., user-xxxxxxxxxxxxxxxx)",
 				},
 				"ttl": {
 					Type:        framework.TypeDurationSecond,
@@ -75,7 +88,7 @@ func pathRole(b *tfBackend) []*framework.Path {
 			HelpDescription: pathRoleHelpDescription,
 		},
 		{
-			Pattern: "roles/?$",
+			Pattern: "role/?$",
 
 			Operations: map[logical.Operation]framework.OperationHandler{
 				logical.ListOperation: &framework.PathOperation{
@@ -90,7 +103,7 @@ func pathRole(b *tfBackend) []*framework.Path {
 }
 
 func (b *tfBackend) pathRolesList(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	entries, err := req.Storage.List(ctx, "roles/")
+	entries, err := req.Storage.List(ctx, "role/")
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +112,7 @@ func (b *tfBackend) pathRolesList(ctx context.Context, req *logical.Request, d *
 }
 
 func (b *tfBackend) pathRolesRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	entry, err := getRole(ctx, req.Storage, d.Get("name").(string))
+	entry, err := b.getRole(ctx, req.Storage, d.Get("name").(string))
 	if err != nil {
 		return nil, err
 	}
@@ -114,16 +127,12 @@ func (b *tfBackend) pathRolesRead(ctx context.Context, req *logical.Request, d *
 }
 
 func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	var resp logical.Response
-
 	name := d.Get("name").(string)
 	if name == "" {
 		return logical.ErrorResponse("missing role name"), nil
 	}
 
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	roleEntry, err := getRole(ctx, req.Storage, name)
+	roleEntry, err := b.getRole(ctx, req.Storage, name)
 	if err != nil {
 		return nil, err
 	}
@@ -132,23 +141,33 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		roleEntry = &terraformRoleEntry{}
 	}
 
-	roleEntry.Name = name
+	createOperation := (req.Operation == logical.CreateOperation)
 
+	roleEntry.Name = name
 	if organization, ok := d.GetOk("organization"); ok {
 		roleEntry.Organization = organization.(string)
-	} else if req.Operation == logical.CreateOperation {
+	} else if createOperation {
 		roleEntry.Organization = d.Get("organization").(string)
-		if roleEntry.Organization == "" {
-			return logical.ErrorResponse("missing organization"), nil
-		}
 	}
 
-	if team, ok := d.GetOk("team_id"); ok {
-		roleEntry.TeamID = team.(string)
-	} else if team != nil {
+	if teamID, ok := d.GetOk("team_id"); ok {
+		roleEntry.TeamID = teamID.(string)
+	} else if createOperation {
 		roleEntry.TeamID = d.Get("team_id").(string)
-	} else {
-		roleEntry.TeamID = ""
+	}
+
+	if userID, ok := d.GetOk("user_id"); ok {
+		roleEntry.UserID = userID.(string)
+	} else if createOperation {
+		roleEntry.UserID = d.Get("user_id").(string)
+	}
+
+	if roleEntry.UserID != "" && (roleEntry.Organization != "" || roleEntry.TeamID != "") {
+		return logical.ErrorResponse("cannot provide a user_id in combination with organization or team_id"), nil
+	}
+
+	if roleEntry.UserID == "" && roleEntry.Organization == "" && roleEntry.TeamID == "" {
+		return logical.ErrorResponse("must provide an organization name, team id, or user id"), nil
 	}
 
 	if ttlRaw, ok := d.GetOk("ttl"); ok {
@@ -167,30 +186,43 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("ttl cannot be greater than max_ttl"), nil
 	}
 
-	if err := setTerraformRole(ctx, req.Storage, name, roleEntry); err != nil {
-		return nil, err
+	// if we're creating a role to manage a Team or Organization, we need to
+	// create the token now. User tokens will be created when credentials are
+	// read.
+	if roleEntry.Organization != "" || roleEntry.TeamID != "" {
+		token, err := b.createToken(ctx, req.Storage, roleEntry)
+		if err != nil {
+			return nil, err
+		}
+
+		roleEntry.Token = token.Token
+		roleEntry.TokenID = token.ID
 	}
 
-	return &resp, nil
-}
-
-func (b *tfBackend) pathRolesDelete(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	err := req.Storage.Delete(ctx, "roles/"+d.Get("name").(string))
-	if err != nil {
-		return nil, errwrap.Wrapf("error deleting terraform role: {{err}}", err)
+	if err := setRole(ctx, req.Storage, name, roleEntry); err != nil {
+		return nil, err
 	}
 
 	return nil, nil
 }
 
-func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleEntry *terraformRoleEntry) error {
-	entry, err := logical.StorageEntryJSON("roles/"+name, roleEntry)
+func (b *tfBackend) pathRolesDelete(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	err := req.Storage.Delete(ctx, "role/"+d.Get("name").(string))
+	if err != nil {
+		return nil, fmt.Errorf("error deleting terraform role: %w", err)
+	}
+
+	return nil, nil
+}
+
+func setRole(ctx context.Context, s logical.Storage, name string, roleEntry *terraformRoleEntry) error {
+	entry, err := logical.StorageEntryJSON("role/"+name, roleEntry)
 	if err != nil {
 		return err
 	}
 
 	if entry == nil {
-		return errwrap.Wrapf("nil result writing to storage", nil)
+		return fmt.Errorf("failed to create storage entry for role")
 	}
 
 	if err := s.Put(ctx, entry); err != nil {
@@ -200,21 +232,12 @@ func setTerraformRole(ctx context.Context, s logical.Storage, name string, roleE
 	return nil
 }
 
-func saveRole(ctx context.Context, s logical.Storage, c *terraformRoleEntry, name string) error {
-	entry, err := logical.StorageEntryJSON("roles/"+name, c)
-	if err != nil {
-		return err
-	}
-
-	return s.Put(ctx, entry)
-}
-
-func getRole(ctx context.Context, s logical.Storage, name string) (*terraformRoleEntry, error) {
+func (b *tfBackend) getRole(ctx context.Context, s logical.Storage, name string) (*terraformRoleEntry, error) {
 	if name == "" {
-		return nil, errwrap.Wrapf("missing role name", nil)
+		return nil, fmt.Errorf("missing role name")
 	}
 
-	entry, err := s.Get(ctx, "roles/"+name)
+	entry, err := s.Get(ctx, "role/"+name)
 	if err != nil {
 		return nil, err
 	}
@@ -224,28 +247,30 @@ func getRole(ctx context.Context, s logical.Storage, name string) (*terraformRol
 	}
 
 	var role terraformRoleEntry
-	if entry != nil {
-		if err := entry.DecodeJSON(&role); err != nil {
-			return nil, err
-		}
-		return &role, nil
-	}
 
-	return nil, nil
+	if err := entry.DecodeJSON(&role); err != nil {
+		return nil, err
+	}
+	return &role, nil
 }
 
-const pathRoleHelpSynopsis = `Manages the Vault role for generating Terraform Cloud / Enterprise tokens.`
-const pathRoleHelpDescription = `
-This path allows you to read and write roles used to generate Terraform Cloud / Enterprise tokens.
-You can configure an organization token (for configuring an organization)
-or a team token (for a team to plan and apply Terraform).
+const (
+	pathRoleHelpSynopsis    = `Manages the Vault role for generating Terraform Cloud / Enterprise tokens.`
+	pathRoleHelpDescription = `
+This path allows you to read and write roles used to generate Terraform Cloud /
+Enterprise tokens. You can configure a role to manage an organization's token, a
+team's token, or a user's dynamic tokens.
 
-To configure a team token,
-set the organization and team fields for the role.
+A Terraform Cloud/Enterprise Organization can only have one active token at a
+time. To manage an Organization's token, set the organization field.
 
-To configure the organization
-token, set the organization field.
+A Terraform Cloud/Enterprise Team can only have one active token at a time. To
+manage a Teams's token, set the team_id field.
+
+A Terraform Cloud/Enterprise User can have multiple API tokens. To manage a
+User's token, set the user_id field.
 `
 
-const pathRoleListHelpSynopsis = `List the existing roles in Terraform Cloud / Enterprise backend`
-const pathRoleListHelpDescription = `Roles will be listed by the role name.`
+	pathRoleListHelpSynopsis    = `List the existing roles in Terraform Cloud / Enterprise backend`
+	pathRoleListHelpDescription = `Roles will be listed by the role name.`
+)

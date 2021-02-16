@@ -1,16 +1,13 @@
-package tfsecrets
+package tfc
 
 import (
 	"context"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
-
-const minUserRollbackAge = 5 * time.Minute
 
 // Factory returns a new backend as logical.Backend
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
@@ -28,7 +25,7 @@ type tfBackend struct {
 }
 
 func backend() *tfBackend {
-	var b = tfBackend{}
+	b := tfBackend{}
 
 	b.Backend = &framework.Backend{
 		Help: strings.TrimSpace(backendHelp),
@@ -38,6 +35,7 @@ func backend() *tfBackend {
 			},
 			SealWrapStorage: []string{
 				"config",
+				"role/*",
 			},
 		},
 		Paths: framework.PathAppend(
@@ -46,14 +44,13 @@ func backend() *tfBackend {
 				pathConfig(&b),
 				pathCredentials(&b),
 			},
+			pathRotateRole(&b),
 		),
 		Secrets: []*framework.Secret{
 			b.terraformToken(),
 		},
-		BackendType:       logical.TypeLogical,
-		Invalidate:        b.invalidate,
-		WALRollback:       b.walRollback,
-		WALRollbackMinAge: minUserRollbackAge,
+		BackendType: logical.TypeLogical,
+		Invalidate:  b.invalidate,
 	}
 
 	return &b
@@ -66,8 +63,7 @@ func (b *tfBackend) reset() {
 }
 
 func (b *tfBackend) invalidate(ctx context.Context, key string) {
-	switch key {
-	case "config":
+	if key == "config" {
 		b.reset()
 	}
 }

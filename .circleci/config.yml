@@ -1,0 +1,24 @@
+version: 2.1
+
+workflows:
+  test-workflow:
+    jobs:
+      - run-tests:
+          context:
+            - vault-plugin-secrets-terraform
+
+jobs:
+  run-tests:
+    docker:
+      - image: docker.mirror.hashicorp.services/circleci/golang:1.15
+    working_directory: /go/src/github.com/hashicorp/vault-plugin-secrets-terraform
+    steps:
+      - checkout
+      - run:
+          name: "Setup Environment"
+          command: |
+            echo 'export GO111MODULE=on' >> $BASH_ENV
+      - run:
+          name: "Run Tests"
+          command: |
+            make test

@@ -1,4 +1,4 @@
-package tfsecrets
+package tfc
 
 import (
 	"context"
@@ -31,6 +31,7 @@ func newAcceptanceTestEnv() (*testEnv, error) {
 		Token:        os.Getenv(envVarTerraformToken),
 		Organization: os.Getenv(envVarTerraformOrganization),
 		TeamID:       os.Getenv(envVarTerraformTeamID),
+		UserID:       os.Getenv(envVarTerraformUserID),
 		Backend:      b,
 		Context:      ctx,
 		Storage:      &logical.InmemStorage{},
@@ -50,8 +51,6 @@ func TestAcceptanceOrganizationToken(t *testing.T) {
 	t.Run("add config", acceptanceTestEnv.AddConfig)
 	t.Run("add organization token role", acceptanceTestEnv.AddOrgTokenRole)
 	t.Run("read organization token cred", acceptanceTestEnv.ReadOrgToken)
-	t.Run("renew organization token cred", acceptanceTestEnv.RenewOrgToken)
-	t.Run("revoke organization token cred", acceptanceTestEnv.RevokeOrgToken)
 }
 
 func TestAcceptanceTeamToken(t *testing.T) {
@@ -67,6 +66,21 @@ func TestAcceptanceTeamToken(t *testing.T) {
 	t.Run("add config", acceptanceTestEnv.AddConfig)
 	t.Run("add team token role", acceptanceTestEnv.AddTeamTokenRole)
 	t.Run("read team token cred", acceptanceTestEnv.ReadTeamToken)
-	t.Run("renew team token cred", acceptanceTestEnv.RenewTeamToken)
-	t.Run("revoke team token cred", acceptanceTestEnv.RevokeTeamToken)
+}
+
+func TestAcceptanceUserToken(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
+	acceptanceTestEnv, err := newAcceptanceTestEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("add config", acceptanceTestEnv.AddConfig)
+	t.Run("add user token role", acceptanceTestEnv.AddUserTokenRole)
+	t.Run("read user token cred", acceptanceTestEnv.ReadUserToken)
+	t.Run("read user token cred", acceptanceTestEnv.ReadUserToken)
+	t.Run("cleanup user tokens", acceptanceTestEnv.CleanupUserTokens)
 }
