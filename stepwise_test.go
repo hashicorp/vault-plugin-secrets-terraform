@@ -5,9 +5,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hashicorp/vault-testing-stepwise"
+	stepwise "github.com/hashicorp/vault-testing-stepwise"
 	"github.com/hashicorp/vault/api"
-	dockerEnvironment "github.com/hashicorp/vault/sdk/testing/stepwise/environments/docker"
+	dockerEnvironment "github.com/hashicorp/vault-testing-stepwise/environments/docker"
 	"github.com/stretchr/testify/require"
 )
 
