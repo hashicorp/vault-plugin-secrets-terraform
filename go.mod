@@ -3,6 +3,7 @@ module github.com/hashicorp/vault-plugin-secrets-terraform
 go 1.14
 
 require (
+	github.com/containerd/containerd v1.5.7 // indirect
 	github.com/hashicorp/go-hclog v1.0.0
 	github.com/hashicorp/go-tfe v0.20.0
 	github.com/hashicorp/vault-testing-stepwise v0.1.2
