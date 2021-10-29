@@ -19,6 +19,6 @@ jobs:
           command: |
             echo 'export GO111MODULE=on' >> $BASH_ENV
       - run:
-          name: "Run Tests"
+          name: "Run Acceptance Tests"
           command: |
-            make test
+            make testacc
