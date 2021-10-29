@@ -1,11 +1,11 @@
 GO_CMD?=go
 CGO_ENABLED?=0
 TOOL?=vault-plugin-secrets-terraform
-TEST?=$$($(GO_CMD) list ./... | grep -v /vendor/ | grep -v /integ)
+TEST?=$$($(GO_CMD) list ./... | grep -v /integ)
 EXTERNAL_TOOLS=\
 	github.com/mitchellh/gox
 BUILD_TAGS?=${TOOL}
-GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
+GOFMT_FILES?=$$(find . -name '*.go')
 
 # bin generates the releaseable binaries for this plugin
 bin: generate
@@ -41,12 +41,12 @@ testacc:
 		echo "ERROR: Set TEST to a specific package"; \
 		exit 1; \
 	fi
-	CGO_ENABLED=0 VAULT_ACC=1 VAULT_TOKEN= $(GO_CMD) test -tags='$(BUILD_TAGS)' $(TEST) -v $(TESTARGS) -timeout=10m
+	CGO_ENABLED=0 VAULT_ACC=1 VAULT_TOKEN= $(GO_CMD) test -tags='$(BUILD_TAGS)' $(TEST) -v $(TESTARGS) -timeout=30m
 
 # generate runs `go generate` to build the dynamically generated
 # source files.
 generate:
-	@go generate $(go list ./... | grep -v /vendor/)
+	@go generate $(go list ./...)
 
 # bootstrap the build by downloading additional tools
 bootstrap:
