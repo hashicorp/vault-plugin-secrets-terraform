@@ -23,12 +23,15 @@ func TestTokenRole(t *testing.T) {
 
 	t.Run("List All Roles", func(t *testing.T) {
 		for i := 1; i <= 10; i++ {
-			_, err := testTokenRoleCreate(t, b, s,
+			resp, err := testTokenRoleCreate(t, b, s,
 				roleName+strconv.Itoa(i),
 				map[string]interface{}{
 					"organization": organization,
 				},
 			)
+			if resp.IsError() {
+				t.Fatalf("Error: received error response: %v", resp.Error().Error())
+			}
 			require.NoError(t, err)
 		}
 
@@ -44,6 +47,10 @@ func TestTokenRole(t *testing.T) {
 		require.NoError(t, err)
 
 		resp, err = testTokenRoleRead(t, b, s)
+		if resp == nil {
+			t.Fatalf("Error: received nil response")
+		}
+
 		require.NoError(t, err)
 		require.Equal(t, roleName, resp.Data["name"])
 		require.Equal(t, organization, resp.Data["organization"])
@@ -79,6 +86,10 @@ func TestTokenRole(t *testing.T) {
 		require.NoError(t, err)
 
 		resp, err = testTokenRoleRead(t, b, s)
+		if resp == nil {
+			t.Fatalf("Error: received nil response")
+		}
+
 		require.NoError(t, err)
 		require.Equal(t, roleName, resp.Data["name"])
 		require.Equal(t, organization, resp.Data["organization"])
@@ -149,7 +160,6 @@ func testTokenRoleCreate(t *testing.T, b *tfBackend, s logical.Storage, name str
 		Data:      d,
 		Storage:   s,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +175,6 @@ func testTokenRoleUpdate(t *testing.T, b *tfBackend, s logical.Storage, d map[st
 		Data:      d,
 		Storage:   s,
 	})
-
 	if err != nil {
 		return nil, err
 	}
