@@ -16,10 +16,21 @@ const (
 	testMaxTTL = int64(3600)
 )
 
+func checkEnvVars(t *testing.T, envVar string) string {
+	v, check := os.LookupEnv(envVar)
+	if !check {
+		t.Fatalf("Error: required environment variable %s is not set", envVar)
+	}
+
+	return v
+}
+
 func TestTokenRole(t *testing.T) {
 	b, s := getTestBackend(t)
-	organization := os.Getenv(envVarTerraformOrganization)
-	teamID := os.Getenv(envVarTerraformTeamID)
+
+	organization := checkEnvVars(t, envVarTerraformOrganization)
+	teamID := checkEnvVars(t, envVarTerraformTeamID)
+	_ = checkEnvVars(t, "TFE_TOKEN")
 
 	t.Run("List All Roles", func(t *testing.T) {
 		for i := 1; i <= 10; i++ {
@@ -99,9 +110,10 @@ func TestTokenRole(t *testing.T) {
 
 func TestUserRole(t *testing.T) {
 	b, s := getTestBackend(t)
-	organization := os.Getenv(envVarTerraformOrganization)
-	teamID := os.Getenv(envVarTerraformTeamID)
-	userID := os.Getenv(envVarTerraformUserID)
+
+	organization := checkEnvVars(t, envVarTerraformOrganization)
+	teamID := checkEnvVars(t, envVarTerraformTeamID)
+	userID := checkEnvVars(t, envVarTerraformUserID)
 
 	t.Run("Create User Role - fail", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{

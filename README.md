@@ -147,8 +147,8 @@ tokens will be created and destroyed in the course of running the tests.
 
 Environment variables:
 
-- `TEST_TF_TOKEN`: (required) API token used to configure the engine and make API calls
 - `TFE_TOKEN`: (required) API token required by go-tfe
+- `TEST_TF_TOKEN`: (required) API token used to configure the engine and make API calls
 - `TEST_TF_ADDRESS`: (optional) HTTP API address if using Terraform Enterprise.
   Defaults to `https://app.terraform.io` for Terraform Cloud.
 - `TEST_TF_ORGANIZATION`: The test organization to manage.
