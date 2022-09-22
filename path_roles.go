@@ -5,20 +5,42 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/go-tfe"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/jsonutil"
 	"github.com/hashicorp/vault/sdk/logical"
+)
+
+const (
+	DynamicTeamTokenType  = "dynamic_team"
+	TeamTokenType         = "team"
+	UserTokenType         = "user"
+	OrganizationTokenType = "organization"
 )
 
 // terraformRoleEntry is a Vault role construct that maps to TFC/TFE
 type terraformRoleEntry struct {
 	Name         string        `json:"name"`
+	TokenType    string        `json:"token_type"`
 	Organization string        `json:"organization,omitempty"`
 	TeamID       string        `json:"team_id,omitempty"`
 	UserID       string        `json:"user_id,omitempty"`
+	TeamOptions  *TeamOptions  `json:"team_options,omitempty"`
 	TTL          time.Duration `json:"ttl"`
 	MaxTTL       time.Duration `json:"max_ttl"`
 	Token        string        `json:"token,omitempty"`
 	TokenID      string        `json:"token_id,omitempty"`
+}
+
+type TeamOptions struct {
+	OrganizationAccess *tfe.OrganizationAccessOptions `json:"organization_access,omitempty"`
+	WorkspaceAccess    *[]WorkspaceAccess             `json:"workspace_access,omitempty"`
+	Visibility         string                         `json:"visibility"`
+}
+
+type WorkspaceAccess struct {
+	Workspace string                    `json:"workspace"`
+	Options   *tfe.TeamAccessAddOptions `json:"options"`
 }
 
 func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
@@ -27,6 +49,7 @@ func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
 		"ttl":     r.TTL.Seconds(),
 		"max_ttl": r.MaxTTL.Seconds(),
 	}
+
 	if r.Organization != "" {
 		respData["organization"] = r.Organization
 	}
@@ -35,6 +58,12 @@ func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
 	}
 	if r.UserID != "" {
 		respData["user_id"] = r.UserID
+	}
+	if r.TokenType != "" {
+		respData["token_type"] = r.TokenType
+	}
+	if r.TeamOptions != nil {
+		respData["team_options"] = r.TeamOptions
 	}
 	return respData
 }
@@ -49,6 +78,10 @@ func pathRole(b *tfBackend) []*framework.Path {
 					Description: "Name of the role",
 					Required:    true,
 				},
+				"token_type": {
+					Type:        framework.TypeString,
+					Description: "Type of token generated for this role",
+				},
 				"organization": {
 					Type:        framework.TypeString,
 					Description: "Name of the Terraform Cloud or Enterprise organization",
@@ -60,6 +93,10 @@ func pathRole(b *tfBackend) []*framework.Path {
 				"user_id": {
 					Type:        framework.TypeString,
 					Description: "ID of the Terraform Cloud or Enterprise user (e.g., user-xxxxxxxxxxxxxxxx)",
+				},
+				"team_options": {
+					Type:        framework.TypeString,
+					Description: "JSON configuration of the Terraform Cloud teams created by this role",
 				},
 				"ttl": {
 					Type:        framework.TypeDurationSecond,
@@ -144,6 +181,12 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	createOperation := (req.Operation == logical.CreateOperation)
 
 	roleEntry.Name = name
+	if tokenType, ok := d.GetOk("token_type"); ok {
+		roleEntry.TokenType = tokenType.(string)
+	} else if createOperation {
+		roleEntry.TokenType = d.Get("token_type").(string)
+	}
+
 	if organization, ok := d.GetOk("organization"); ok {
 		roleEntry.Organization = organization.(string)
 	} else if createOperation {
@@ -162,12 +205,20 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		roleEntry.UserID = d.Get("user_id").(string)
 	}
 
-	if roleEntry.UserID != "" && (roleEntry.Organization != "" || roleEntry.TeamID != "") {
-		return logical.ErrorResponse("cannot provide a user_id in combination with organization or team_id"), nil
-	}
+	// Parse the team_options
+	if teamOptions, ok := d.GetOk("team_options"); ok {
+		parsedOptions := &TeamOptions{}
 
-	if roleEntry.UserID == "" && roleEntry.Organization == "" && roleEntry.TeamID == "" {
-		return logical.ErrorResponse("must provide an organization name, team id, or user id"), nil
+		err := jsonutil.DecodeJSON([]byte(teamOptions.(string)), &parsedOptions)
+		if err != nil {
+			return logical.ErrorResponse("error parsing team_options '%s': %s", teamOptions.(string), err.Error()), nil
+		}
+
+		if parsedOptions.WorkspaceAccess == nil {
+			w := make([]WorkspaceAccess, 0)
+			parsedOptions.WorkspaceAccess = &w
+		}
+		roleEntry.TeamOptions = parsedOptions
 	}
 
 	if ttlRaw, ok := d.GetOk("ttl"); ok {
@@ -186,15 +237,91 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("ttl cannot be greater than max_ttl"), nil
 	}
 
-	// if we're creating a role to manage a Team or Organization, we need to
-	// create the token now. User tokens will be created when credentials are
-	// read.
-	if roleEntry.Organization != "" || roleEntry.TeamID != "" {
-		token, err := b.createToken(ctx, req.Storage, roleEntry)
+	var token *terraformToken
+	client, err := b.getClient(ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+
+	switch roleEntry.TokenType {
+	case DynamicTeamTokenType:
+		if roleEntry.UserID != "" || roleEntry.TeamID != "" {
+			return logical.ErrorResponse(fmt.Sprintf("cannot provide user_id or team_id with token_type %q", DynamicTeamTokenType)), nil
+		}
+		if roleEntry.Organization == "" || roleEntry.TeamOptions == nil {
+			return logical.ErrorResponse(fmt.Sprintf("must provide organization and team_options with token_type %q", DynamicTeamTokenType)), nil
+		}
+	case TeamTokenType:
+		if roleEntry.UserID != "" || roleEntry.TeamOptions != nil {
+			return logical.ErrorResponse(fmt.Sprintf("cannot provide user_id or team_options with token_type %q", TeamTokenType)), nil
+		}
+		if roleEntry.Organization == "" || roleEntry.TeamID == "" {
+			return logical.ErrorResponse(fmt.Sprintf("must provide organization and team_id with token_type %q", TeamTokenType)), nil
+		}
+
+		// if we're creating a role to manage a team_id or organization token, we need to
+		// create the token now. User tokens and dynamic team tokens will be created when
+		// credentials are read.
+		token, err = createTeamToken(ctx, client, roleEntry.TeamID)
 		if err != nil {
 			return nil, err
 		}
+	case UserTokenType:
+		if roleEntry.Organization != "" || roleEntry.TeamID != "" || roleEntry.TeamOptions != nil {
+			return logical.ErrorResponse(fmt.Sprintf("cannot provide organization or team_id or team_options with token_type %q", UserTokenType)), nil
+		}
+		if roleEntry.UserID == "" {
+			return logical.ErrorResponse(fmt.Sprintf("must provide user_id with token_type %q", UserTokenType)), nil
+		}
+	case OrganizationTokenType:
+		if roleEntry.UserID != "" || roleEntry.TeamID != "" || roleEntry.TeamOptions != nil {
+			return logical.ErrorResponse(fmt.Sprintf("cannot provide user_id or team_id or team_options with token_type %q", OrganizationTokenType)), nil
+		}
+		if roleEntry.Organization == "" {
+			return logical.ErrorResponse(fmt.Sprintf("must provide organization with token_type %q", OrganizationTokenType)), nil
+		}
 
+		// if we're creating a role to manage a team_id or organization token, we need to
+		// create the token now. User tokens and dynamic team tokens will be created when
+		// credentials are read.
+		token, err = createOrgToken(ctx, client, roleEntry.Organization)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		if roleEntry.TeamOptions != nil {
+			return logical.ErrorResponse(fmt.Sprintf("token_type must be %q if providing team_options", DynamicTeamTokenType)), nil
+		}
+
+		if roleEntry.UserID != "" && (roleEntry.Organization != "" || roleEntry.TeamID != "") {
+			return logical.ErrorResponse("cannot provide a user_id in combination with organization or team_id"), nil
+		}
+
+		if roleEntry.UserID == "" && roleEntry.Organization == "" && roleEntry.TeamID == "" {
+			return logical.ErrorResponse("must provide an organization name, team id, or user id if token_type is not specified"), nil
+		}
+
+		// if we're creating a role to manage a team_id or organization token, we need to
+		// create the token now. User tokens and dynamic team tokens will be created when
+		// credentials are read.
+		if roleEntry.TeamID != "" {
+			roleEntry.TokenType = TeamTokenType
+			token, err = createTeamToken(ctx, client, roleEntry.TeamID)
+			if err != nil {
+				return nil, err
+			}
+		} else if roleEntry.Organization != "" {
+			roleEntry.TokenType = OrganizationTokenType
+			token, err = createOrgToken(ctx, client, roleEntry.Organization)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			roleEntry.TokenType = UserTokenType
+		}
+	}
+
+	if token != nil {
 		roleEntry.Token = token.Token
 		roleEntry.TokenID = token.ID
 	}
@@ -259,16 +386,21 @@ const (
 	pathRoleHelpDescription = `
 This path allows you to read and write roles used to generate Terraform Cloud /
 Enterprise tokens. You can configure a role to manage an organization's token, a
-team's token, or a user's dynamic tokens.
+team's token, dynamic team tokens, or a user's dynamic tokens.
 
 A Terraform Cloud/Enterprise Organization can only have one active token at a
-time. To manage an Organization's token, set the organization field.
+time. To manage an Organization's token, set the organization field and token_type to
+'organization'.
 
 A Terraform Cloud/Enterprise Team can only have one active token at a time. To
-manage a Teams's token, set the team_id field.
+manage a Teams's token, set the team_id and organization fields and token_type to 'team'.
+
+A Terraform Cloud/Enterprise Organization can have multiple teams. To have Vault create
+teams and vend tokens for the team, set the team_options and organization fields and
+token_type to 'dynamic_team'.
 
 A Terraform Cloud/Enterprise User can have multiple API tokens. To manage a
-User's token, set the user_id field.
+User's token, set the user_id field and token_type to 'user'.
 `
 
 	pathRoleListHelpSynopsis    = `List the existing roles in Terraform Cloud / Enterprise backend`

@@ -2,6 +2,7 @@ package tfc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -33,6 +34,8 @@ func pathRotateRole(b *tfBackend) []*framework.Path {
 }
 
 func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	var token *terraformToken
+
 	name := d.Get("name").(string)
 	if name == "" {
 		return logical.ErrorResponse("missing role name"), nil
@@ -47,13 +50,24 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("missing role entry"), nil
 	}
 
-	if roleEntry.UserID != "" {
-		return logical.ErrorResponse("cannot rotate credentials for user roles"), nil
-	}
-
-	token, err := b.createToken(ctx, req.Storage, roleEntry)
+	client, err := b.getClient(ctx, req.Storage)
 	if err != nil {
 		return nil, err
+	}
+
+	switch roleEntry.TokenType {
+	case OrganizationTokenType:
+		token, err = createOrgToken(ctx, client, roleEntry.Organization)
+		if err != nil {
+			return nil, err
+		}
+	case TeamTokenType:
+		token, err = createTeamToken(ctx, client, roleEntry.TeamID)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return logical.ErrorResponse(fmt.Sprintf("cannot rotate credentials for %q token_type", roleEntry.TokenType)), nil
 	}
 
 	roleEntry.Token = token.Token

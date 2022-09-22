@@ -55,14 +55,19 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 		return nil, errors.New("error retrieving role: role is nil")
 	}
 
-	if roleEntry.UserID != "" {
+	switch roleEntry.TokenType {
+	case UserTokenType:
 		return b.createUserCreds(ctx, req, roleEntry)
+	case DynamicTeamTokenType:
+		return b.createDynamicTeamCreds(ctx, req, roleEntry)
+	default:
 	}
 
 	resp := &logical.Response{
 		Data: map[string]interface{}{
 			"token_id":     roleEntry.TokenID,
 			"token":        roleEntry.Token,
+			"token_type":   roleEntry.TokenType,
 			"organization": roleEntry.Organization,
 			"team_id":      roleEntry.TeamID,
 			"role":         roleEntry.Name,
@@ -71,8 +76,18 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 	return resp, nil
 }
 
-func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, role *terraformRoleEntry) (*logical.Response, error) {
-	token, err := b.createToken(ctx, req.Storage, role)
+func (b *tfBackend) createDynamicTeamCreds(ctx context.Context, req *logical.Request, role *terraformRoleEntry) (*logical.Response, error) {
+	client, err := b.getClient(ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+
+	teamID, err := createTeam(ctx, client, role.Organization, role.TeamOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := createTeamToken(ctx, client, teamID)
 	if err != nil {
 		return nil, err
 	}
@@ -81,8 +96,10 @@ func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, r
 		"token":    token.Token,
 		"token_id": token.ID,
 	}, map[string]interface{}{
-		"token_id": token.ID,
-		"role":     role.Name,
+		"token_id":   token.ID,
+		"role":       role.Name,
+		"team_id":    teamID,
+		"token_type": role.TokenType,
 	})
 
 	if role.TTL > 0 {
@@ -96,32 +113,35 @@ func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, r
 	return resp, nil
 }
 
-func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntry *terraformRoleEntry) (*terraformToken, error) {
-	client, err := b.getClient(ctx, s)
+func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, role *terraformRoleEntry) (*logical.Response, error) {
+	client, err := b.getClient(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
 
-	var token *terraformToken
-
-	switch {
-	case isOrgToken(roleEntry.Organization, roleEntry.TeamID):
-		token, err = createOrgToken(ctx, client, roleEntry.Organization)
-	case isTeamToken(roleEntry.TeamID):
-		token, err = createTeamToken(ctx, client, roleEntry.TeamID)
-	default:
-		token, err = createUserToken(ctx, client, roleEntry.UserID)
-	}
-
+	token, err := createUserToken(ctx, client, role.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("error creating Terraform token: %w", err)
+		return nil, err
 	}
 
-	if token == nil {
-		return nil, errors.New("error creating Terraform token")
+	resp := b.Secret(terraformTokenType).Response(map[string]interface{}{
+		"token":    token.Token,
+		"token_id": token.ID,
+	}, map[string]interface{}{
+		"token_id":   token.ID,
+		"role":       role.Name,
+		"token_type": role.TokenType,
+	})
+
+	if role.TTL > 0 {
+		resp.Secret.TTL = role.TTL
 	}
 
-	return token, nil
+	if role.MaxTTL > 0 {
+		resp.Secret.MaxTTL = role.MaxTTL
+	}
+
+	return resp, nil
 }
 
 const pathCredentialsHelpSyn = `
