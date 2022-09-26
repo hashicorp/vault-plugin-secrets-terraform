@@ -179,12 +179,21 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	}
 
 	createOperation := (req.Operation == logical.CreateOperation)
+	updateOperation := (req.Operation == logical.UpdateOperation)
 
 	roleEntry.Name = name
 	if tokenType, ok := d.GetOk("token_type"); ok {
 		roleEntry.TokenType = tokenType.(string)
 	} else if createOperation {
 		roleEntry.TokenType = d.Get("token_type").(string)
+	} else if updateOperation && roleEntry.TokenType != DynamicTeamTokenType {
+		// For updates, if token_type is not passed in explicitly,
+		// we will update the token_type based on the other field values.
+		// To do this, we must override the old value if token_type is
+		// not passed in explicitly. The exception to this is when the
+		// token_type was 'dynamic_team', as this type needs to be explicitly
+		// referenced. All other token types can be inferred.
+		roleEntry.TokenType = ""
 	}
 
 	if organization, ok := d.GetOk("organization"); ok {
@@ -207,18 +216,22 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 
 	// Parse the team_options
 	if teamOptions, ok := d.GetOk("team_options"); ok {
-		parsedOptions := &TeamOptions{}
+		if teamOptions == "" {
+			roleEntry.TeamOptions = nil
+		} else {
+			parsedOptions := &TeamOptions{}
 
-		err := jsonutil.DecodeJSON([]byte(teamOptions.(string)), &parsedOptions)
-		if err != nil {
-			return logical.ErrorResponse("error parsing team_options '%s': %s", teamOptions.(string), err.Error()), nil
-		}
+			err := jsonutil.DecodeJSON([]byte(teamOptions.(string)), &parsedOptions)
+			if err != nil {
+				return logical.ErrorResponse("error parsing team_options '%s': %s", teamOptions.(string), err.Error()), nil
+			}
 
-		if parsedOptions.WorkspaceAccess == nil {
-			w := make([]WorkspaceAccess, 0)
-			parsedOptions.WorkspaceAccess = &w
+			if parsedOptions.WorkspaceAccess == nil {
+				w := make([]WorkspaceAccess, 0)
+				parsedOptions.WorkspaceAccess = &w
+			}
+			roleEntry.TeamOptions = parsedOptions
 		}
-		roleEntry.TeamOptions = parsedOptions
 	}
 
 	if ttlRaw, ok := d.GetOk("ttl"); ok {

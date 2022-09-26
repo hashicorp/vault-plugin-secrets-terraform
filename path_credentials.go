@@ -93,8 +93,10 @@ func (b *tfBackend) createDynamicTeamCreds(ctx context.Context, req *logical.Req
 	}
 
 	resp := b.Secret(terraformTokenType).Response(map[string]interface{}{
-		"token":    token.Token,
-		"token_id": token.ID,
+		"token":      token.Token,
+		"token_id":   token.ID,
+		"team_id":    teamID,
+		"token_type": role.TokenType,
 	}, map[string]interface{}{
 		"token_id":   token.ID,
 		"role":       role.Name,

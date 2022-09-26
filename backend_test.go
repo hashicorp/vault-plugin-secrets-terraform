@@ -51,6 +51,8 @@ type testEnv struct {
 
 	// TokenIDs tracks the IDs of generated tokens, to make sure we clean up
 	TokenIDs []string
+	// TeamIDs tracks the IDs of generated teams, to make sure we clean up
+	TeamIDs []string
 }
 
 func (e *testEnv) AddConfig(t *testing.T) {
@@ -147,6 +149,73 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 	require.NotNil(t, tt)
 	if t, ok := resp.Data["token"]; ok {
 		e.SecretToken = t.(string)
+	}
+}
+
+func (e *testEnv) AddDynamicTeamTokenRole(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "role/test-dynamic-team-token",
+		Storage:   e.Storage,
+		Data: map[string]interface{}{
+			"organization": e.Organization,
+			"team_options": "{\"visibility\": \"secret\"}",
+			"token_type":   "dynamic_team",
+		},
+	}
+	resp, err := e.Backend.HandleRequest(e.Context, req)
+	require.Nil(t, err)
+	require.Nil(t, resp)
+}
+
+func (e *testEnv) ReadDynamicTeamToken(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "creds/test-dynamic-team-token",
+		Storage:   e.Storage,
+	}
+	resp, err := e.Backend.HandleRequest(e.Context, req)
+	require.Nil(t, err)
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.Data["token"])
+
+	if t, ok := resp.Data["team_id"]; ok {
+		e.TeamIDs = append(e.TeamIDs, t.(string))
+	}
+
+	// verify there is a token
+	b := e.Backend.(*tfBackend)
+	client, err := b.getClient(e.Context, e.Storage)
+	if err != nil {
+		t.Fatal("fatal getting client")
+	}
+	tt, err := client.TeamTokens.Read(e.Context, e.TeamID)
+	if err != nil {
+		t.Fatalf("unexpected error reading team token: %s", err)
+	}
+	require.NotNil(t, tt)
+	if t, ok := resp.Data["token"]; ok {
+		e.SecretToken = t.(string)
+	}
+
+	// verify there is a team
+	team, err := client.Teams.Read(e.Context, e.TeamID)
+	if err != nil {
+		t.Fatalf("unexpected error reading team token: %s", err)
+	}
+	require.NotNil(t, team)
+}
+
+func (e *testEnv) CleanupDynamicTeams(t *testing.T) {
+	for _, id := range e.TeamIDs {
+		b := e.Backend.(*tfBackend)
+		client, err := b.getClient(e.Context, e.Storage)
+		if err != nil {
+			t.Fatal("fatal getting client")
+		}
+		if err := client.Teams.Delete(e.Context, id); err != nil {
+			t.Fatalf("unexpected error deleting team: %v", err)
+		}
 	}
 }
 
