@@ -74,9 +74,6 @@ func pathRole(b *tfBackend) []*framework.Path {
 				logical.ReadOperation: &framework.PathOperation{
 					Callback: b.pathRolesRead,
 				},
-				logical.CreateOperation: &framework.PathOperation{
-					Callback: b.pathRolesWrite,
-				},
 				logical.UpdateOperation: &framework.PathOperation{
 					Callback: b.pathRolesWrite,
 				},
