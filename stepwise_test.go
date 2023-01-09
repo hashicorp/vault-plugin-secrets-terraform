@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	stepwise "github.com/hashicorp/vault-testing-stepwise"
-	"github.com/hashicorp/vault/api"
 	dockerEnvironment "github.com/hashicorp/vault-testing-stepwise/environments/docker"
+	"github.com/hashicorp/vault/api"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,9 +72,6 @@ var initSetup sync.Once
 func testAccPreCheck(t *testing.T) {
 	initSetup.Do(func() {
 		// Ensure test variables are set
-		if v := os.Getenv("TEST_TF_ADDRESS"); v == "" {
-			t.Skip("TEST_TF_TOKEN not set")
-		}
 		if v := os.Getenv("TEST_TF_TOKEN"); v == "" {
 			t.Skip("TEST_TF_TOKEN not set")
 		}
@@ -86,13 +83,18 @@ func testAccPreCheck(t *testing.T) {
 		}
 	})
 }
+
 func testAccConfig(t *testing.T) stepwise.Step {
+	address := "https://app.terraform.io"
+	if v := os.Getenv("TEST_TF_ADDRESS"); v != "" {
+		address = v
+	}
 	return stepwise.Step{
 		Operation: stepwise.UpdateOperation,
 		Path:      "config",
 		Data: map[string]interface{}{
 			"token":   os.Getenv("TEST_TF_TOKEN"),
-			"address": os.Getenv("TEST_TF_ADDRESS"),
+			"address": address,
 		},
 	}
 }
