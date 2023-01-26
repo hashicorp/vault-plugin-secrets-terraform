@@ -1,13 +1,13 @@
 # Vault Plugin: Terraform Cloud Secrets Backend [![HashiCorp](https://circleci.com/gh/hashicorp/vault-plugin-secrets-terraform.svg?style=svg)](https://circleci.com/gh/hashicorp/vault-plugin-secrets-terraform)
 
 This is a standalone backend plugin for use with [Hashicorp
-Vault](https://www.github.com/hashicorp/vault). This plugin generates revocable,
-time-limited API tokens for [Terraform Cloud](https://www.terraform.io/cloud) users, as well as manages single API
-tokens for Terraform teams and Organizations. Please see Terraform Cloud's
-documentation on [API
-Tokens](https://www.terraform.io/docs/cloud/users-teams-organizations/api-tokens.html)
-for more information on the types of API tokens offered by the Terraform Cloud
-  API.
+Vault](https://www.github.com/hashicorp/vault). This plugin generates:
+- Revocable, time-limited [API tokens](https://www.terraform.io/cloud-docs/users-teams-organizations/api-tokens#user-api-tokens) for [Terraform Cloud users](https://www.terraform.io/cloud-docs/users-teams-organizations/users).
+- Revocable, time-limited [Terraform Cloud teams](https://www.terraform.io/cloud-docs/users-teams-organizations/teams) and corresponding [API tokens](https://www.terraform.io/cloud-docs/users-teams-organizations/api-tokens#team-api-tokens).
+- Manages single [API tokens](https://www.terraform.io/cloud-docs/users-teams-organizations/api-tokens#team-api-tokens) for existing [Terraform Cloud teams](https://www.terraform.io/cloud-docs/users-teams-organizations/teams).
+- Manages single [API tokens](https://www.terraform.io/cloud-docs/users-teams-organizations/api-tokens#organization-api-tokens) for [Terraform Cloud organizations](https://www.terraform.io/cloud-docs/users-teams-organizations/organizations). 
+
+Please see Terraform Cloud's documentation on [API Tokens](https://www.terraform.io/docs/cloud/users-teams-organizations/api-tokens.html) for more information on the types of API tokens offered by the Terraform Cloud API.
 
 **Please note**: We take Vault's security and our users' trust very seriously.
 If you believe you have found a security issue in Vault, _please responsibly

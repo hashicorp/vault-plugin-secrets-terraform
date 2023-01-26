@@ -68,6 +68,23 @@ func TestAcceptanceTeamToken(t *testing.T) {
 	t.Run("read team token cred", acceptanceTestEnv.ReadTeamToken)
 }
 
+func TestAcceptanceDynamicTeamToken(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
+	acceptanceTestEnv, err := newAcceptanceTestEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("add config", acceptanceTestEnv.AddConfig)
+	t.Run("add dynamic team token role", acceptanceTestEnv.AddDynamicTeamTokenRole)
+	t.Run("read dynamic team token cred", acceptanceTestEnv.ReadDynamicTeamToken)
+	t.Run("read dynamic team token cred", acceptanceTestEnv.ReadDynamicTeamToken)
+	t.Run("clean up dynamic teams", acceptanceTestEnv.CleanupDynamicTeams)
+}
+
 func TestAcceptanceUserToken(t *testing.T) {
 	if !runAcceptanceTests {
 		t.SkipNow()

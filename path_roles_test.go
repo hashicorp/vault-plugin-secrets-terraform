@@ -108,6 +108,94 @@ func TestTokenRole(t *testing.T) {
 	})
 }
 
+func TestDynamicTokenRole(t *testing.T) {
+	b, s := getTestBackend(t)
+
+	organization := checkEnvVars(t, envVarTerraformOrganization)
+
+	t.Run("Create Dynamic Token Role - fail", func(t *testing.T) {
+		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			// Need 'token_type' to be 'dynamic_team'
+			"organization": organization,
+			"team_options": "{\"visibility\": \"secret\"}",
+		})
+		require.Nil(t, err)
+
+		require.Error(t, resp.Error())
+	})
+	t.Run("Create Dynamic Token Role - pass", func(t *testing.T) {
+		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			// Need 'token_type' to be 'dynamic_team'
+			"organization": organization,
+			"team_options": "{\"visibility\": \"secret\"}",
+			"token_type":   "dynamic_team",
+			"max_ttl":      "3600",
+		})
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.Nil(t, resp)
+	})
+	t.Run("Read Dynamic Team Role", func(t *testing.T) {
+		resp, err := testTokenRoleRead(t, b, s)
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.NotNil(t, resp)
+		require.Equal(t, DynamicTeamTokenType, resp.Data["token_type"])
+	})
+	t.Run("Update Dynamic Team Role - fail", func(t *testing.T) {
+		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
+			// token_type is still 'dynamic_team' so passing in 'team_id' will fail.
+			"team_id": "test",
+			"ttl":     "1m",
+			"max_ttl": "5h",
+		})
+
+		require.Nil(t, err)
+
+		require.Error(t, resp.Error())
+	})
+	t.Run("Update Dynamic Team Role - pass", func(t *testing.T) {
+		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
+			"team_options": "{\"visibility\": \"organization\"}",
+			"ttl":          "1m",
+			"max_ttl":      "5h",
+		})
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.Nil(t, resp)
+	})
+	t.Run("Re-read Dynamic Team Role", func(t *testing.T) {
+		resp, err := testTokenRoleRead(t, b, s)
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.NotNil(t, resp)
+		require.Equal(t, DynamicTeamTokenType, resp.Data["token_type"])
+	})
+	t.Run("Change to 'organization' token_type", func(t *testing.T) {
+		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
+			"token_type":   "organization",
+			"team_options": "",
+			"ttl":          "1m",
+			"max_ttl":      "5h",
+		})
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.Nil(t, resp)
+	})
+	t.Run("Re-read Role", func(t *testing.T) {
+		resp, err := testTokenRoleRead(t, b, s)
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.NotNil(t, resp)
+		require.Equal(t, OrganizationTokenType, resp.Data["token_type"])
+	})
+}
 func TestUserRole(t *testing.T) {
 	b, s := getTestBackend(t)
 
@@ -142,6 +230,7 @@ func TestUserRole(t *testing.T) {
 		require.Nil(t, resp.Error())
 		require.NotNil(t, resp)
 		require.Equal(t, resp.Data["user_id"], userID)
+		require.Equal(t, resp.Data["token_type"], UserTokenType)
 	})
 	t.Run("Update User Role", func(t *testing.T) {
 		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
@@ -160,6 +249,7 @@ func TestUserRole(t *testing.T) {
 		require.Nil(t, resp.Error())
 		require.NotNil(t, resp)
 		require.Equal(t, resp.Data["user_id"], userID)
+		require.Equal(t, resp.Data["token_type"], UserTokenType)
 	})
 }
 
@@ -191,9 +281,6 @@ func testTokenRoleUpdate(t *testing.T, b *tfBackend, s logical.Storage, d map[st
 		return nil, err
 	}
 
-	if resp != nil && resp.IsError() {
-		t.Fatal(resp.Error())
-	}
 	return resp, nil
 }
 
