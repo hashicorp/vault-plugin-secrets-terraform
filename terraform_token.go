@@ -27,7 +27,7 @@ func createOrgToken(ctx context.Context, c *client, organization string) (*terra
 		return nil, err
 	}
 
-	token, err := c.OrganizationTokens.Generate(ctx, organization)
+	token, err := c.OrganizationTokens.Create(ctx, organization)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformT
 		return nil, err
 	}
 
-	token, err := c.TeamTokens.Generate(ctx, teamID)
+	token, err := c.TeamTokens.Create(ctx, teamID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformT
 }
 
 func createUserToken(ctx context.Context, c *client, userID string) (*terraformToken, error) {
-	token, err := c.UserTokens.Generate(ctx, userID, tfe.UserTokenGenerateOptions{})
+	token, err := c.UserTokens.Create(ctx, userID, tfe.UserTokenCreateOptions{})
 	if err != nil {
 		return nil, err
 	}
