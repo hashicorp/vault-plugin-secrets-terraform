@@ -18,7 +18,7 @@ func TestAccOrganizationToken(t *testing.T) {
 	}
 	envOptions := &stepwise.MountOptions{
 		RegistryName:    "tfc",
-		PluginType:      stepwise.PluginTypeSecrets,
+		PluginType:      api.PluginTypeSecrets,
 		PluginName:      "vault-plugin-secrets-terraform",
 		MountPathPrefix: "tfc",
 	}
@@ -46,7 +46,7 @@ func TestAccUserToken(t *testing.T) {
 	}
 	envOptions := &stepwise.MountOptions{
 		RegistryName:    "tfc",
-		PluginType:      stepwise.PluginTypeSecrets,
+		PluginType:      api.PluginTypeSecrets,
 		PluginName:      "vault-plugin-secrets-terraform",
 		MountPathPrefix: "tfc",
 	}
