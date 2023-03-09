@@ -170,7 +170,7 @@ func TestUserRole(t *testing.T) {
 func testTokenRoleCreate(t *testing.T, b *tfBackend, s logical.Storage, name string, d map[string]interface{}) (*logical.Response, error) {
 	t.Helper()
 	resp, err := b.HandleRequest(context.Background(), &logical.Request{
-		Operation: logical.CreateOperation,
+		Operation: logical.UpdateOperation,
 		Path:      "role/" + name,
 		Data:      d,
 		Storage:   s,

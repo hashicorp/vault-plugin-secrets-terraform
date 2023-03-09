@@ -77,9 +77,6 @@ func pathRole(b *tfBackend) []*framework.Path {
 				logical.ReadOperation: &framework.PathOperation{
 					Callback: b.pathRolesRead,
 				},
-				logical.CreateOperation: &framework.PathOperation{
-					Callback: b.pathRolesWrite,
-				},
 				logical.UpdateOperation: &framework.PathOperation{
 					Callback: b.pathRolesWrite,
 				},
@@ -144,25 +141,17 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		roleEntry = &terraformRoleEntry{}
 	}
 
-	createOperation := (req.Operation == logical.CreateOperation)
-
 	roleEntry.Name = name
 	if organization, ok := d.GetOk("organization"); ok {
 		roleEntry.Organization = organization.(string)
-	} else if createOperation {
-		roleEntry.Organization = d.Get("organization").(string)
 	}
 
 	if teamID, ok := d.GetOk("team_id"); ok {
 		roleEntry.TeamID = teamID.(string)
-	} else if createOperation {
-		roleEntry.TeamID = d.Get("team_id").(string)
 	}
 
 	if userID, ok := d.GetOk("user_id"); ok {
 		roleEntry.UserID = userID.(string)
-	} else if createOperation {
-		roleEntry.UserID = d.Get("user_id").(string)
 	}
 
 	if roleEntry.UserID != "" && (roleEntry.Organization != "" || roleEntry.TeamID != "") {
@@ -175,14 +164,10 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 
 	if ttlRaw, ok := d.GetOk("ttl"); ok {
 		roleEntry.TTL = time.Duration(ttlRaw.(int)) * time.Second
-	} else if req.Operation == logical.CreateOperation {
-		roleEntry.TTL = time.Duration(d.Get("ttl").(int)) * time.Second
 	}
 
 	if maxTTLRaw, ok := d.GetOk("max_ttl"); ok {
 		roleEntry.MaxTTL = time.Duration(maxTTLRaw.(int)) * time.Second
-	} else if req.Operation == logical.CreateOperation {
-		roleEntry.MaxTTL = time.Duration(d.Get("max_ttl").(int)) * time.Second
 	}
 
 	if roleEntry.MaxTTL != 0 && roleEntry.TTL > roleEntry.MaxTTL {
