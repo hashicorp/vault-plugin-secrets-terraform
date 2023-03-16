@@ -2,8 +2,7 @@ GO_CMD?=go
 CGO_ENABLED?=0
 TOOL?=vault-plugin-secrets-terraform
 TEST?=$$($(GO_CMD) list ./... | grep -v /vendor/ | grep -v /integ)
-EXTERNAL_TOOLS=\
-	github.com/mitchellh/gox
+EXTERNAL_TOOLS=
 BUILD_TAGS?=${TOOL}
 GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
 
