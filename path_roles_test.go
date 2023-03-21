@@ -37,7 +37,7 @@ func TestTokenRole(t *testing.T) {
 
 	organization := checkEnvVars(t, envVarTerraformOrganization)
 	teamID := checkEnvVars(t, envVarTerraformTeamID)
-	_ = checkEnvVars(t, "TFE_TOKEN")
+	_ = checkEnvVars(t, envVarTerraformToken)
 
 	t.Run("List All Roles", func(t *testing.T) {
 		for i := 1; i <= 10; i++ {

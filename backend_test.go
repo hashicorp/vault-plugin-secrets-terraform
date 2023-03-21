@@ -15,10 +15,11 @@ import (
 
 const (
 	envVarRunAccTests           = "VAULT_ACC"
-	envVarTerraformToken        = "TFE_TOKEN"
+	envVarTerraformToken        = "TF_TOKEN"
 	envVarTerraformOrganization = "TF_ORGANIZATION"
 	envVarTerraformTeamID       = "TF_TEAM_ID"
 	envVarTerraformUserID       = "TF_USER_ID"
+	envVarTerraformAddress      = "TF_ADDRESS"
 )
 
 func getTestBackend(tb testing.TB) (*tfBackend, logical.Storage) {
