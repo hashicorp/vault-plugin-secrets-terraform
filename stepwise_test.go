@@ -4,6 +4,7 @@
 package tfc
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -75,28 +76,30 @@ var initSetup sync.Once
 func testAccPreCheck(t *testing.T) {
 	initSetup.Do(func() {
 		// Ensure test variables are set
-		if v := os.Getenv("TEST_TF_TOKEN"); v == "" {
-			t.Skip("TEST_TF_TOKEN not set")
+		if v := os.Getenv(envVarTerraformToken); v == "" {
+			t.Skip(fmt.Printf("%s not set", envVarTerraformToken))
 		}
-		if v := os.Getenv("TEST_TF_ORGANIZATION"); v == "" {
-			t.Skip("TEST_TF_ORGANIZATION not set")
+		if v := os.Getenv(envVarTerraformOrganization); v == "" {
+			t.Skip(fmt.Printf("%s not set", envVarTerraformOrganization))
+
 		}
-		if v := os.Getenv("TEST_TF_TEAM_ID"); v == "" {
-			t.Skip("TEST_TF_TEAM_ID not set")
+		if v := os.Getenv(envVarTerraformTeamID); v == "" {
+			t.Skip(fmt.Printf("%s not set", envVarTerraformTeamID))
+
 		}
 	})
 }
 
 func testAccConfig(t *testing.T) stepwise.Step {
 	address := "https://app.terraform.io"
-	if v := os.Getenv("TEST_TF_ADDRESS"); v != "" {
+	if v := os.Getenv(envVarTerraformAddress); v != "" {
 		address = v
 	}
 	return stepwise.Step{
 		Operation: stepwise.UpdateOperation,
 		Path:      "config",
 		Data: map[string]interface{}{
-			"token":   os.Getenv("TEST_TF_TOKEN"),
+			"token":   os.Getenv(envVarTerraformToken),
 			"address": address,
 		},
 	}
