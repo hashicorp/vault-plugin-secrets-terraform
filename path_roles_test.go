@@ -29,6 +29,10 @@ func checkEnvVars(t *testing.T, envVar string) string {
 }
 
 func TestTokenRole(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
 	b, s := getTestBackend(t)
 
 	organization := checkEnvVars(t, envVarTerraformOrganization)
@@ -112,6 +116,10 @@ func TestTokenRole(t *testing.T) {
 }
 
 func TestUserRole(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
 	b, s := getTestBackend(t)
 
 	organization := checkEnvVars(t, envVarTerraformOrganization)
