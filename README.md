@@ -145,10 +145,9 @@ tokens will be created and destroyed in the course of running the tests.
 
 Environment variables:
 
-- `TFE_TOKEN`: (required) API token required by go-tfe
-- `TEST_TF_TOKEN`: (required) API token used to configure the engine and make API calls
-- `TEST_TF_ORGANIZATION`: (required) The test organization to manage.
-- `TEST_TF_TEAM_ID`: (required) The *team ID* for the test Team to manage.
-- `TEST_TF_USER_ID`: (required) The *user ID* for the user to create dynamic tokens for.
-- `TEST_TF_ADDRESS`: (optional) HTTP API address if using Terraform Enterprise.
+- `TF_TOKEN`: (required) API token used to configure the engine and make API calls
+- `TF_ORGANIZATION`: (required) The test organization to manage.
+- `TF_TEAM_ID`: (required) The *team ID* for the test Team to manage.
+- `TF_USER_ID`: (required) The *user ID* for the user to create dynamic tokens for.
+- `TF_ADDRESS`: (optional) HTTP API address if using Terraform Enterprise.
   Defaults to `https://app.terraform.io` for Terraform Cloud.
