@@ -13,6 +13,7 @@ jobs:
       TF_TOKEN: ${{ secrets.TF_TOKEN }}
       TF_ORGANIZATION: ${{ secrets.TF_ORGANIZATION }}
       TF_TEAM_ID: ${{ secrets.TF_TEAM_ID }}
+      TF_USER_ID: ${{ secrets.TF_USER_ID }}
 
     steps:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0

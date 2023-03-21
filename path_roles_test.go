@@ -5,6 +5,7 @@ package tfc
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -37,7 +38,15 @@ func TestTokenRole(t *testing.T) {
 
 	organization := checkEnvVars(t, envVarTerraformOrganization)
 	teamID := checkEnvVars(t, envVarTerraformTeamID)
-	_ = checkEnvVars(t, envVarTerraformToken)
+	token := checkEnvVars(t, envVarTerraformToken)
+
+	// Create a configuration with the right API token
+	err := testConfigCreate(t, b, s, map[string]interface{}{
+		"token": token,
+	})
+	if err != nil {
+		t.Fatal(fmt.Errorf("err creating config, err=%w", err))
+	}
 
 	t.Run("List All Roles", func(t *testing.T) {
 		for i := 1; i <= 10; i++ {
