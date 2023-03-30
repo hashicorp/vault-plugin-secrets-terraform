@@ -46,6 +46,12 @@ func pathRole(b *tfBackend) []*framework.Path {
 	return []*framework.Path{
 		{
 			Pattern: "role/" + framework.GenericNameRegex("name"),
+
+			DisplayAttrs: &framework.DisplayAttributes{
+				OperationPrefix: operationPrefixTerraformCloud,
+				OperationSuffix: "role",
+			},
+
 			Fields: map[string]*framework.FieldSchema{
 				"name": {
 					Type:        framework.TypeLowerCaseString,
@@ -89,6 +95,12 @@ func pathRole(b *tfBackend) []*framework.Path {
 		},
 		{
 			Pattern: "role/?$",
+
+			DisplayAttrs: &framework.DisplayAttributes{
+				OperationPrefix: operationPrefixTerraformCloud,
+				OperationVerb:   "list",
+				OperationSuffix: "roles",
+			},
 
 			Operations: map[logical.Operation]framework.OperationHandler{
 				logical.ListOperation: &framework.PathOperation{

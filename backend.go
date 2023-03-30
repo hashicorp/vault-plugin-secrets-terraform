@@ -12,6 +12,9 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
+// operationPrefixTerraformCloud is used as a prefix for OpenAPI operation id's.
+const operationPrefixTerraformCloud = "terraform-cloud"
+
 // Factory returns a new backend as logical.Backend
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
 	b := backend()

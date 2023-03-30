@@ -14,6 +14,13 @@ func pathRotateRole(b *tfBackend) []*framework.Path {
 	return []*framework.Path{
 		{
 			Pattern: "rotate-role/" + framework.GenericNameRegex("name"),
+
+			DisplayAttrs: &framework.DisplayAttributes{
+				OperationPrefix: operationPrefixTerraformCloud,
+				OperationVerb:   "rotate",
+				OperationSuffix: "role",
+			},
+
 			Fields: map[string]*framework.FieldSchema{
 				"name": {
 					Type:        framework.TypeString,
