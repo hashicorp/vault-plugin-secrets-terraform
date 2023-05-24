@@ -1,7 +1,7 @@
 ## Unreleased
 
-## 0.10.0
-### May 23, 2023
+## 0.7.0
+### May 24, 2023
 
 IMPROVEMENTS:
 * updated Go version to 1.20.2
