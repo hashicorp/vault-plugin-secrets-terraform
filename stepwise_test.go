@@ -16,6 +16,10 @@ import (
 )
 
 func TestAccOrganizationToken(t *testing.T) {
+	// Skip until we can fix acc tests
+	// Currently vault-testing-stepwise is broken due to https://github.com/hashicorp/vault-testing-stepwise/issues/10
+	t.SkipNow()
+
 	t.Parallel()
 	if !runAcceptanceTests {
 		t.SkipNow()
@@ -44,6 +48,10 @@ func TestAccOrganizationToken(t *testing.T) {
 }
 
 func TestAccUserToken(t *testing.T) {
+	// Skip until we can fix acc tests
+	// Currently vault-testing-stepwise is broken due to https://github.com/hashicorp/vault-testing-stepwise/issues/10
+	t.SkipNow()
+
 	t.Parallel()
 	if !runAcceptanceTests {
 		t.SkipNow()
@@ -81,11 +89,9 @@ func testAccPreCheck(t *testing.T) {
 		}
 		if v := os.Getenv(envVarTerraformOrganization); v == "" {
 			t.Skip(fmt.Printf("%s not set", envVarTerraformOrganization))
-
 		}
 		if v := os.Getenv(envVarTerraformTeamID); v == "" {
 			t.Skip(fmt.Printf("%s not set", envVarTerraformTeamID))
-
 		}
 	})
 }
