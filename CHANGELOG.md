@@ -1,7 +1,13 @@
 ## Unreleased
 
+## 0.7.3
+### September 8, 2023
+IMPROVEMENTS:
+* chore: remove dependency github.com/hashicorp/vault-testing-stepwise
+
 ## 0.7.2
 ### September 8, 2023
+IMPROVEMENTS:
 * Update dependencies
   * github.com/hashicorp/go-hclog v1.5.0
   * github.com/hashicorp/go-tfe v1.33.0
