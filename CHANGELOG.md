@@ -1,5 +1,11 @@
 ## Unreleased
 
+## 0.7.4
+### January 4, 2024
+
+IMPROVEMENTS:
+* update dependencies
+
 ## 0.7.3
 ### September 8, 2023
 IMPROVEMENTS:
