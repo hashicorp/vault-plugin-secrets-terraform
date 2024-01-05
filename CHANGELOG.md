@@ -5,6 +5,9 @@
 
 IMPROVEMENTS:
 * update dependencies
+  * github.com/hashicorp/go-hclog v1.6.2
+  * github.com/hashicorp/go-tfe v1.42.0
+  * github.com/hashicorp/vault/sdk v0.10.2
 
 ## 0.7.3
 ### September 8, 2023
