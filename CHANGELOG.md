@@ -2,6 +2,8 @@
 IMPROVEMENTS:
 * Updated dependencies:
    * `github.com/hashicorp/go-tfe` v1.52.0 -> v1.61.0 to allow HCP IDs
+   * `github.com/docker/docker` v24.0.9 -> v25.0.6
+   * `github.com/hashicorp/go-retryablehttp` v0.7.5 -> v0.7.7
 
 ## 0.8.0
 ### May 20, 2024
