@@ -1,4 +1,7 @@
 ## Unreleased
+IMPROVEMENTS:
+* Updated dependencies:
+   * `github.com/hashicorp/go-tfe` v1.52.0 -> v1.61.0 to allow HCP IDs
 
 ## 0.8.0
 ### May 20, 2024
