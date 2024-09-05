@@ -1,3 +1,13 @@
+## Unreleased
+
+## 0.10.0
+### Sep 5, 2024
+IMPROVEMENTS:
+* Updated dependencies:
+  * `github.com/hashicorp/go-tfe` v1.61.0 -> v1.64.2
+  * `github.com/hashicorp/vault/api` v1.13.0 -> v1.14.0
+  * `github.com/hashicorp/vault/sdk` v0.12.0 -> v0.13.0
+ 
 ## 0.9.0
 IMPROVEMENTS:
 * Updated dependencies:
