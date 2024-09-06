@@ -1,7 +1,7 @@
 ## Unreleased
 
 ## 0.10.0
-### Sep 5, 2024
+### Sep 6, 2024
 IMPROVEMENTS:
 * Updated dependencies:
   * `github.com/hashicorp/go-tfe` v1.61.0 -> v1.64.2
