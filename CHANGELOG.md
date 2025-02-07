@@ -1,5 +1,10 @@
 ## Unreleased
 
+## 0.11.0
+### FEb 7, 2025
+IMPROVEMENTS:
+* Updated dependencies: https://github.com/hashicorp/vault-plugin-secrets-terraform/pull/79
+
 ## 0.10.0
 ### Sep 6, 2024
 IMPROVEMENTS:
