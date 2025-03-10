@@ -134,6 +134,8 @@ func TestUserRole(t *testing.T) {
 	organization := checkEnvVars(t, envVarTerraformOrganization)
 	teamID := checkEnvVars(t, envVarTerraformTeamID)
 	userID := checkEnvVars(t, envVarTerraformUserID)
+	descriptionOriginal := "description1"
+	descriptionUpdated := "description2"
 
 	t.Run("Create User Role - fail", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
@@ -147,8 +149,9 @@ func TestUserRole(t *testing.T) {
 	})
 	t.Run("Create User Role - pass", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"user_id": userID,
-			"max_ttl": "3600",
+			"user_id":     userID,
+			"max_ttl":     "3600",
+			"description": descriptionOriginal,
 		})
 
 		require.Nil(t, err)
@@ -162,11 +165,13 @@ func TestUserRole(t *testing.T) {
 		require.Nil(t, resp.Error())
 		require.NotNil(t, resp)
 		require.Equal(t, resp.Data["user_id"], userID)
+		require.Equal(t, resp.Data["description"], descriptionOriginal)
 	})
 	t.Run("Update User Role", func(t *testing.T) {
 		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
-			"ttl":     "1m",
-			"max_ttl": "5h",
+			"ttl":         "1m",
+			"max_ttl":     "5h",
+			"description": descriptionUpdated,
 		})
 
 		require.Nil(t, err)
@@ -180,6 +185,7 @@ func TestUserRole(t *testing.T) {
 		require.Nil(t, resp.Error())
 		require.NotNil(t, resp)
 		require.Equal(t, resp.Data["user_id"], userID)
+		require.Equal(t, resp.Data["description"], descriptionUpdated)
 	})
 }
 

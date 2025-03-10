@@ -18,6 +18,7 @@ type terraformRoleEntry struct {
 	Organization string        `json:"organization,omitempty"`
 	TeamID       string        `json:"team_id,omitempty"`
 	UserID       string        `json:"user_id,omitempty"`
+	Description  string        `json:"description,omitempty"`
 	TTL          time.Duration `json:"ttl"`
 	MaxTTL       time.Duration `json:"max_ttl"`
 	Token        string        `json:"token,omitempty"`
@@ -29,6 +30,9 @@ func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
 		"name":    r.Name,
 		"ttl":     r.TTL.Seconds(),
 		"max_ttl": r.MaxTTL.Seconds(),
+	}
+	if r.Description != "" {
+		respData["description"] = r.Description
 	}
 	if r.Organization != "" {
 		respData["organization"] = r.Organization
@@ -57,6 +61,10 @@ func pathRole(b *tfBackend) []*framework.Path {
 					Type:        framework.TypeLowerCaseString,
 					Description: "Name of the role",
 					Required:    true,
+				},
+				"description": {
+					Type:        framework.TypeString,
+					Description: "Description of the token created by the role",
 				},
 				"organization": {
 					Type:        framework.TypeString,
@@ -164,6 +172,10 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 
 	if userID, ok := d.GetOk("user_id"); ok {
 		roleEntry.UserID = userID.(string)
+	}
+
+	if description, ok := d.GetOk("description"); ok {
+		roleEntry.Description = description.(string)
 	}
 
 	if roleEntry.UserID != "" && (roleEntry.Organization != "" || roleEntry.TeamID != "") {
