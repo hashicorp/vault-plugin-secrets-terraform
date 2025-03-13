@@ -1,5 +1,8 @@
 ## Unreleased
 
+FEATURES:
+* Added optional description for user token roles to provide a description in HCPTF UI: https://github.com/hashicorp/vault-plugin-secrets-terraform/pull/84
+
 ## 0.11.0
 ### FEb 7, 2025
 IMPROVEMENTS:
