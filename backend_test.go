@@ -45,6 +45,7 @@ type testEnv struct {
 	Organization string
 	TeamID       string
 	UserID       string
+	Description  string
 
 	Backend logical.Backend
 	Context context.Context
@@ -160,7 +161,8 @@ func (e *testEnv) AddUserTokenRole(t *testing.T) {
 		Path:      "role/test-user-token",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"user_id": e.UserID,
+			"user_id":     e.UserID,
+			"description": e.Description,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)

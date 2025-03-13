@@ -59,8 +59,10 @@ func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformT
 	}, nil
 }
 
-func createUserToken(ctx context.Context, c *client, userID string) (*terraformToken, error) {
-	token, err := c.UserTokens.Create(ctx, userID, tfe.UserTokenCreateOptions{})
+func createUserToken(ctx context.Context, c *client, userID string, description string) (*terraformToken, error) {
+	token, err := c.UserTokens.Create(ctx, userID, tfe.UserTokenCreateOptions{
+		Description: description,
+	})
 	if err != nil {
 		return nil, err
 	}

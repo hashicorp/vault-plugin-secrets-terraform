@@ -85,6 +85,10 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 			"role":         roleEntry.Name,
 		},
 	}
+	
+	if roleEntry.Description != "" {
+		resp.Data["description"] = roleEntry.Description
+	}
 	return resp, nil
 }
 
@@ -94,10 +98,16 @@ func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, r
 		return nil, err
 	}
 
-	resp := b.Secret(terraformTokenType).Response(map[string]interface{}{
+	data := map[string]interface{}{
 		"token":    token.Token,
 		"token_id": token.ID,
-	}, map[string]interface{}{
+	}
+	
+	if role.Description != "" {
+		data["description"] = role.Description
+	}
+	
+	resp := b.Secret(terraformTokenType).Response(data, map[string]interface{}{
 		"token_id": token.ID,
 		"role":     role.Name,
 	})
@@ -127,7 +137,7 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntr
 	case isTeamToken(roleEntry.TeamID):
 		token, err = createTeamToken(ctx, client, roleEntry.TeamID)
 	default:
-		token, err = createUserToken(ctx, client, roleEntry.UserID)
+		token, err = createUserToken(ctx, client, roleEntry.UserID, roleEntry.Description)
 	}
 
 	if err != nil {
