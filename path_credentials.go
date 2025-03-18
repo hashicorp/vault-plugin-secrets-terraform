@@ -85,7 +85,7 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 			"role":         roleEntry.Name,
 		},
 	}
-	
+
 	if roleEntry.Description != "" {
 		resp.Data["description"] = roleEntry.Description
 	}
@@ -102,11 +102,11 @@ func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, r
 		"token":    token.Token,
 		"token_id": token.ID,
 	}
-	
+
 	if role.Description != "" {
 		data["description"] = role.Description
 	}
-	
+
 	resp := b.Secret(terraformTokenType).Response(data, map[string]interface{}{
 		"token_id": token.ID,
 		"role":     role.Name,
