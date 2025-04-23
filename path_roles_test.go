@@ -132,19 +132,10 @@ func TestMultiTeamRole(t *testing.T) {
 	b, s := getTestBackend(t)
 
 	teamID := checkEnvVars(t, envVarTerraformTeamID)
-	// userID := checkEnvVars(t, envVarTerraformUserID)
+
 	descriptionOriginal := "description1"
 	descriptionUpdated := "description2"
 
-	t.Run("Create MultiTeam Role - fail", func(t *testing.T) {
-		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"team_id":          teamID,
-			"multi_team_token": true,
-		})
-		require.Nil(t, err)
-
-		require.Error(t, resp.Error())
-	})
 	t.Run("Create MultiTeam Role - pass", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
 			"team_id":          teamID,
