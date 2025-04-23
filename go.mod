@@ -6,7 +6,7 @@ toolchain go1.22.0
 
 require (
 	github.com/hashicorp/go-hclog v1.6.3
-	github.com/hashicorp/go-tfe v1.74.1
+	github.com/hashicorp/go-tfe v1.78.0
 	github.com/hashicorp/vault/api v1.14.0
 	github.com/hashicorp/vault/sdk v0.13.0
 	github.com/stretchr/testify v1.10.0
@@ -46,13 +46,13 @@ require (
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.8 // indirect
 	github.com/hashicorp/go-secure-stdlib/plugincontainer v0.3.0 // indirect
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
-	github.com/hashicorp/go-slug v0.16.3 // indirect
+	github.com/hashicorp/go-slug v0.16.4 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.6 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-5 // indirect
-	github.com/hashicorp/jsonapi v1.3.2 // indirect
+	github.com/hashicorp/jsonapi v1.4.3-0.20250220162346-81a76b606f3e // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/joshlf/go-acl v0.0.0-20200411065538-eae00ae38531 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
@@ -86,7 +86,7 @@ require (
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	golang.org/x/time v0.9.0 // indirect
+	golang.org/x/time v0.10.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240822170219-fc7c04adadcd // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240822170219-fc7c04adadcd // indirect

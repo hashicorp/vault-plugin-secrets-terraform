@@ -14,15 +14,16 @@ import (
 
 // terraformRoleEntry is a Vault role construct that maps to TFC/TFE
 type terraformRoleEntry struct {
-	Name         string        `json:"name"`
-	Organization string        `json:"organization,omitempty"`
-	TeamID       string        `json:"team_id,omitempty"`
-	UserID       string        `json:"user_id,omitempty"`
-	Description  string        `json:"description,omitempty"`
-	TTL          time.Duration `json:"ttl"`
-	MaxTTL       time.Duration `json:"max_ttl"`
-	Token        string        `json:"token,omitempty"`
-	TokenID      string        `json:"token_id,omitempty"`
+	Name               string        `json:"name"`
+	Organization       string        `json:"organization,omitempty"`
+	TeamID             string        `json:"team_id,omitempty"`
+	UserID             string        `json:"user_id,omitempty"`
+	Description        string        `json:"description,omitempty"`
+	TTL                time.Duration `json:"ttl"`
+	MaxTTL             time.Duration `json:"max_ttl"`
+	MultipleTeamTokens bool          `json:"multiple_team_tokens,omitempty"`
+	Token              string        `json:"token,omitempty"`
+	TokenID            string        `json:"token_id,omitempty"`
 }
 
 func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
@@ -42,6 +43,9 @@ func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
 	}
 	if r.UserID != "" {
 		respData["user_id"] = r.UserID
+	}
+	if r.MultipleTeamTokens != false {
+		respData["multiple_team_tokens"] = r.MultipleTeamTokens
 	}
 	return respData
 }
@@ -85,6 +89,10 @@ func pathRole(b *tfBackend) []*framework.Path {
 				"max_ttl": {
 					Type:        framework.TypeDurationSecond,
 					Description: "Maximum time for role. If not set or set to 0, will use system default.",
+				},
+				"multiple_team_tokens": {
+					Type:        framework.TypeBool,
+					Description: "Determines if Multiple Team Token API should be used or Legacy Team Token API. If true, you can set a TTL for vault to manage revocation (not available for Legacy)",
 				},
 			},
 			Operations: map[logical.Operation]framework.OperationHandler{
@@ -190,6 +198,10 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		roleEntry.TTL = time.Duration(ttlRaw.(int)) * time.Second
 	}
 
+	if multipleTeamTokensRaw, ok := d.GetOk("multiple_team_tokens"); ok {
+		roleEntry.MultipleTeamTokens = multipleTeamTokensRaw.(bool)
+	}
+
 	if maxTTLRaw, ok := d.GetOk("max_ttl"); ok {
 		roleEntry.MaxTTL = time.Duration(maxTTLRaw.(int)) * time.Second
 	}
@@ -201,7 +213,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	// if we're creating a role to manage a Team or Organization, we need to
 	// create the token now. User tokens will be created when credentials are
 	// read.
-	if roleEntry.Organization != "" || roleEntry.TeamID != "" {
+	if roleEntry.Organization != "" || (roleEntry.TeamID != "" && !roleEntry.MultipleTeamTokens) {
 		token, err := b.createToken(ctx, req.Storage, roleEntry)
 		if err != nil {
 			return nil, err

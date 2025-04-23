@@ -155,6 +155,64 @@ func (e *testEnv) ReadTeamToken(t *testing.T) {
 	}
 }
 
+func (e *testEnv) AddMultiTeamTokenRole(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "role/test-multiteam-token",
+		Storage:   e.Storage,
+		Data: map[string]interface{}{
+			"team_id":          e.TeamID,
+			"description":      e.Description,
+			"multi_team_token": true,
+		},
+	}
+	resp, err := e.Backend.HandleRequest(e.Context, req)
+	require.Nil(t, resp)
+	require.Nil(t, err)
+}
+
+func (e *testEnv) ReadMultiTeamToken(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "creds/test-multiteam-token",
+		Storage:   e.Storage,
+	}
+	resp, err := e.Backend.HandleRequest(e.Context, req)
+	require.Nil(t, err)
+	require.NotNil(t, resp)
+	if t, ok := resp.Data["token_id"]; ok {
+		e.TokenIDs = append(e.TokenIDs, t.(string))
+	}
+	require.NotEmpty(t, resp.Data["token"])
+
+	if e.SecretToken != "" {
+		require.NotEqual(t, e.SecretToken, resp.Data["token"])
+	}
+
+	// collect secret IDs to revoke at end of test
+	require.NotNil(t, resp.Secret)
+	if t, ok := resp.Secret.InternalData["token_id"]; ok {
+		e.SecretToken = t.(string)
+	}
+}
+
+func (e *testEnv) CleanupMultiTeamTokens(t *testing.T) {
+	if len(e.TokenIDs) == 0 {
+		t.Fatalf("expected 2 tokens, got: %d", len(e.TokenIDs))
+	}
+
+	for _, id := range e.TokenIDs {
+		b := e.Backend.(*tfBackend)
+		client, err := b.getClient(e.Context, e.Storage)
+		if err != nil {
+			t.Fatal("fatal getting client")
+		}
+		if err := client.TeamTokens.Delete(e.Context, id); err != nil {
+			t.Fatalf("unexpected error deleting multiteam token: %s", err)
+		}
+	}
+}
+
 func (e *testEnv) AddUserTokenRole(t *testing.T) {
 	req := &logical.Request{
 		Operation: logical.UpdateOperation,

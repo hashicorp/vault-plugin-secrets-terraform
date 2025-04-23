@@ -124,6 +124,71 @@ func TestTokenRole(t *testing.T) {
 	})
 }
 
+func TestMultiTeamRole(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
+	b, s := getTestBackend(t)
+
+	teamID := checkEnvVars(t, envVarTerraformTeamID)
+	// userID := checkEnvVars(t, envVarTerraformUserID)
+	descriptionOriginal := "description1"
+	descriptionUpdated := "description2"
+
+	t.Run("Create MultiTeam Role - fail", func(t *testing.T) {
+		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			"team_id":          teamID,
+			"multi_team_token": true,
+		})
+		require.Nil(t, err)
+
+		require.Error(t, resp.Error())
+	})
+	t.Run("Create MultiTeam Role - pass", func(t *testing.T) {
+		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			"team_id":          teamID,
+			"multi_team_token": true,
+			"max_ttl":          "3600",
+			"description":      descriptionOriginal,
+		})
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.Nil(t, resp)
+	})
+	t.Run("Read MultiTeam Role", func(t *testing.T) {
+		resp, err := testTokenRoleRead(t, b, s)
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.NotNil(t, resp)
+		require.Equal(t, resp.Data["team_id"], teamID)
+		require.Equal(t, resp.Data["description"], descriptionOriginal)
+	})
+	t.Run("Update MultiTeam Role", func(t *testing.T) {
+		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
+			"multi_team_token": true,
+			"ttl":              "1m",
+			"max_ttl":          "5h",
+			"description":      descriptionUpdated,
+		})
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.Nil(t, resp)
+	})
+	t.Run("Re-read MultiTeam Role", func(t *testing.T) {
+		resp, err := testTokenRoleRead(t, b, s)
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.NotNil(t, resp)
+		require.Equal(t, resp.Data["team_id"], teamID)
+		require.Equal(t, resp.Data["description"], descriptionUpdated)
+	})
+}
+
 func TestUserRole(t *testing.T) {
 	if !runAcceptanceTests {
 		t.SkipNow()
