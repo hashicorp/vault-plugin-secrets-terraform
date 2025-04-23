@@ -76,6 +76,11 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 		return b.createUserCreds(ctx, req, roleEntry)
 	}
 
+	// Multi-team tokens behave like user tokens
+	if roleEntry.TeamID != "" && roleEntry.MultipleTeamTokens {
+		return b.createMultiTeamCreds(ctx, req, roleEntry)
+	}
+
 	resp := &logical.Response{
 		Data: map[string]interface{}{
 			"token_id":     roleEntry.TokenID,
@@ -123,6 +128,37 @@ func (b *tfBackend) createUserCreds(ctx context.Context, req *logical.Request, r
 	return resp, nil
 }
 
+func (b *tfBackend) createMultiTeamCreds(ctx context.Context, req *logical.Request, role *terraformRoleEntry) (*logical.Response, error) {
+	token, err := b.createToken(ctx, req.Storage, role)
+	if err != nil {
+		return nil, err
+	}
+
+	data := map[string]interface{}{
+		"token":    token.Token,
+		"token_id": token.ID,
+	}
+
+	if role.Description != "" {
+		data["description"] = role.Description
+	}
+
+	resp := b.Secret(terraformTokenType).Response(data, map[string]interface{}{
+		"token_id": token.ID,
+		"role":     role.Name,
+	})
+
+	if role.TTL > 0 {
+		resp.Secret.TTL = role.TTL
+	}
+
+	if role.MaxTTL > 0 {
+		resp.Secret.MaxTTL = role.MaxTTL
+	}
+
+	return resp, nil
+}
+
 func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntry *terraformRoleEntry) (*terraformToken, error) {
 	client, err := b.getClient(ctx, s)
 	if err != nil {
@@ -135,7 +171,11 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntr
 	case isOrgToken(roleEntry.Organization, roleEntry.TeamID):
 		token, err = createOrgToken(ctx, client, roleEntry.Organization)
 	case isTeamToken(roleEntry.TeamID):
-		token, err = createTeamToken(ctx, client, roleEntry.TeamID)
+		if roleEntry.MultipleTeamTokens {
+			token, err = createTeamTokenWithOptions(ctx, client, *roleEntry)
+		} else {
+			token, err = createTeamToken(ctx, client, roleEntry.TeamID)
+		}
 	default:
 		token, err = createUserToken(ctx, client, roleEntry.UserID, roleEntry.Description)
 	}

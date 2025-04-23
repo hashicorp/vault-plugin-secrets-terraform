@@ -71,6 +71,23 @@ func TestAcceptanceTeamToken(t *testing.T) {
 	t.Run("read team token cred", acceptanceTestEnv.ReadTeamToken)
 }
 
+func TestAcceptanceMultiTeamToken(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
+	acceptanceTestEnv, err := newAcceptanceTestEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("add config", acceptanceTestEnv.AddConfig)
+	t.Run("add multiteam token role", acceptanceTestEnv.AddMultiTeamTokenRole)
+	t.Run("read multiteam token cred", acceptanceTestEnv.ReadMultiTeamToken)
+	t.Run("read multiteam token cred", acceptanceTestEnv.ReadMultiTeamToken)
+	t.Run("cleanup multiteam tokens", acceptanceTestEnv.CleanupMultiTeamTokens)
+}
+
 func TestAcceptanceUserToken(t *testing.T) {
 	if !runAcceptanceTests {
 		t.SkipNow()

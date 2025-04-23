@@ -59,6 +59,24 @@ func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformT
 	}, nil
 }
 
+func createTeamTokenWithOptions(ctx context.Context, c *client, roleEntry terraformRoleEntry) (*terraformToken, error) {
+	teamID := roleEntry.TeamID
+	createOpts := tfe.TeamTokenCreateOptions{
+		Description: roleEntry.Description,
+	}
+
+	token, err := c.TeamTokens.CreateWithOptions(ctx, teamID, createOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &terraformToken{
+		ID:          token.ID,
+		Description: token.Description,
+		Token:       token.Token,
+	}, nil
+}
+
 func createUserToken(ctx context.Context, c *client, userID string, description string) (*terraformToken, error) {
 	token, err := c.UserTokens.Create(ctx, userID, tfe.UserTokenCreateOptions{
 		Description: description,

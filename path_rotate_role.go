@@ -61,6 +61,10 @@ func (b *tfBackend) pathRotateRole(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("cannot rotate credentials for user roles"), nil
 	}
 
+	if roleEntry.TeamID != "" && roleEntry.MultipleTeamTokens {
+		return logical.ErrorResponse("cannot rotate credentials for multi-team roles"), nil
+	}
+
 	token, err := b.createToken(ctx, req.Storage, roleEntry)
 	if err != nil {
 		return nil, err
