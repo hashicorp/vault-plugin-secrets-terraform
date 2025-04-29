@@ -56,7 +56,7 @@ func TestAcceptanceOrganizationToken(t *testing.T) {
 	t.Run("read organization token cred", acceptanceTestEnv.ReadOrgToken)
 }
 
-func TestAcceptanceTeamToken(t *testing.T) {
+func TestAcceptanceTeamLegacyToken(t *testing.T) {
 	if !runAcceptanceTests {
 		t.SkipNow()
 	}
@@ -67,8 +67,8 @@ func TestAcceptanceTeamToken(t *testing.T) {
 	}
 
 	t.Run("add config", acceptanceTestEnv.AddConfig)
-	t.Run("add team token role", acceptanceTestEnv.AddTeamTokenRole)
-	t.Run("read team token cred", acceptanceTestEnv.ReadTeamToken)
+	t.Run("add team token role", acceptanceTestEnv.AddTeamLegacyTokenRole)
+	t.Run("read team token cred", acceptanceTestEnv.ReadTeamLegacyToken)
 }
 
 func TestAcceptanceMultiTeamToken(t *testing.T) {

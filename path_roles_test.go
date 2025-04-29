@@ -138,10 +138,10 @@ func TestMultiTeamRole(t *testing.T) {
 
 	t.Run("Create MultiTeam Role - pass", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"team_id":          teamID,
-			"multi_team_token": true,
-			"max_ttl":          "3600",
-			"description":      descriptionOriginal,
+			"team_id":         teamID,
+			"credential_type": "team",
+			"max_ttl":         "3600",
+			"description":     descriptionOriginal,
 		})
 
 		require.Nil(t, err)
@@ -155,14 +155,14 @@ func TestMultiTeamRole(t *testing.T) {
 		require.Nil(t, resp.Error())
 		require.NotNil(t, resp)
 		require.Equal(t, resp.Data["team_id"], teamID)
-		require.Equal(t, resp.Data["description"], descriptionOriginal)
+		require.Equal(t, resp.Data["description"], descriptionOriginal) // cred description includes random int
 	})
 	t.Run("Update MultiTeam Role", func(t *testing.T) {
 		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
-			"multi_team_token": true,
-			"ttl":              "1m",
-			"max_ttl":          "5h",
-			"description":      descriptionUpdated,
+			"credential_type": "team",
+			"ttl":             "1m",
+			"max_ttl":         "5h",
+			"description":     descriptionUpdated,
 		})
 
 		require.Nil(t, err)
