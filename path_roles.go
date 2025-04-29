@@ -8,22 +8,39 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/go-secure-stdlib/strutil"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
+const (
+	userCredentialType         = "user"
+	organizationCredentialType = "organization"
+	teamLegacyCredentialType   = "team_legacy"
+	teamCredentialType         = "team"
+)
+
+func credentialType_Values() []string {
+	return []string{
+		userCredentialType,
+		organizationCredentialType,
+		teamLegacyCredentialType,
+		teamCredentialType,
+	}
+}
+
 // terraformRoleEntry is a Vault role construct that maps to TFC/TFE
 type terraformRoleEntry struct {
-	Name               string        `json:"name"`
-	Organization       string        `json:"organization,omitempty"`
-	TeamID             string        `json:"team_id,omitempty"`
-	UserID             string        `json:"user_id,omitempty"`
-	Description        string        `json:"description,omitempty"`
-	TTL                time.Duration `json:"ttl"`
-	MaxTTL             time.Duration `json:"max_ttl"`
-	MultipleTeamTokens bool          `json:"multiple_team_tokens,omitempty"`
-	Token              string        `json:"token,omitempty"`
-	TokenID            string        `json:"token_id,omitempty"`
+	Name           string        `json:"name"`
+	Organization   string        `json:"organization,omitempty"`
+	TeamID         string        `json:"team_id,omitempty"`
+	UserID         string        `json:"user_id,omitempty"`
+	Description    string        `json:"description,omitempty"`
+	TTL            time.Duration `json:"ttl"`
+	MaxTTL         time.Duration `json:"max_ttl"`
+	CredentialType string        `json:"credential_type,omitempty"`
+	Token          string        `json:"token,omitempty"`
+	TokenID        string        `json:"token_id,omitempty"`
 }
 
 func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
@@ -37,16 +54,24 @@ func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
 	}
 	if r.Organization != "" {
 		respData["organization"] = r.Organization
+		r.CredentialType = organizationCredentialType
 	}
 	if r.TeamID != "" {
 		respData["team_id"] = r.TeamID
+		// Default to legacy team credential type
+		if r.CredentialType == "" {
+			r.CredentialType = teamLegacyCredentialType
+			respData["credential_type"] = teamLegacyCredentialType
+		} else {
+			respData["credential_type"] = teamCredentialType
+		}
 	}
 	if r.UserID != "" {
 		respData["user_id"] = r.UserID
+		r.CredentialType = userCredentialType
+		respData["credential_type"] = userCredentialType
 	}
-	if r.MultipleTeamTokens != false {
-		respData["multiple_team_tokens"] = r.MultipleTeamTokens
-	}
+
 	return respData
 }
 
@@ -90,9 +115,9 @@ func pathRole(b *tfBackend) []*framework.Path {
 					Type:        framework.TypeDurationSecond,
 					Description: "Maximum time for role. If not set or set to 0, will use system default.",
 				},
-				"multiple_team_tokens": {
-					Type:        framework.TypeBool,
-					Description: "Determines if Multiple Team Token API should be used or Legacy Team Token API. If true, you can set a TTL for vault to manage revocation (not available for Legacy)",
+				"credential_type": {
+					Type:        framework.TypeString,
+					Description: "Credential type to be used for the token. Can be either 'user', 'org', 'team', or 'team_legacy'.",
 				},
 			},
 			Operations: map[logical.Operation]framework.OperationHandler{
@@ -170,16 +195,34 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	}
 
 	roleEntry.Name = name
-	if organization, ok := d.GetOk("organization"); ok {
-		roleEntry.Organization = organization.(string)
+
+	// Will set if users dont. Must be set for multi-team tokens
+	if credentialTypeRaw, ok := d.GetOk("credential_type"); ok {
+		roleEntry.CredentialType = credentialTypeRaw.(string)
+		if !strutil.StrListContains(credentialType_Values(), roleEntry.CredentialType) {
+			return logical.ErrorResponse("unrecognized credential type: %s", roleEntry.CredentialType), nil
+		}
 	}
 
-	if teamID, ok := d.GetOk("team_id"); ok {
-		roleEntry.TeamID = teamID.(string)
+	if organization, ok := d.GetOk("organization"); ok {
+		roleEntry.Organization = organization.(string)
+		if roleEntry.CredentialType == "" {
+			roleEntry.CredentialType = organizationCredentialType
+		}
 	}
 
 	if userID, ok := d.GetOk("user_id"); ok {
 		roleEntry.UserID = userID.(string)
+		if roleEntry.CredentialType == "" {
+			roleEntry.CredentialType = userCredentialType
+		}
+	}
+
+	if teamID, ok := d.GetOk("team_id"); ok {
+		roleEntry.TeamID = teamID.(string)
+		if roleEntry.CredentialType == "" {
+			roleEntry.CredentialType = teamLegacyCredentialType
+		}
 	}
 
 	if description, ok := d.GetOk("description"); ok {
@@ -198,10 +241,6 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		roleEntry.TTL = time.Duration(ttlRaw.(int)) * time.Second
 	}
 
-	if multipleTeamTokensRaw, ok := d.GetOk("multiple_team_tokens"); ok {
-		roleEntry.MultipleTeamTokens = multipleTeamTokensRaw.(bool)
-	}
-
 	if maxTTLRaw, ok := d.GetOk("max_ttl"); ok {
 		roleEntry.MaxTTL = time.Duration(maxTTLRaw.(int)) * time.Second
 	}
@@ -210,10 +249,16 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("ttl cannot be greater than max_ttl"), nil
 	}
 
+	if roleEntry.CredentialType == teamLegacyCredentialType {
+		if roleEntry.Description != "" || roleEntry.TTL != 0 || roleEntry.MaxTTL != 0 {
+			return logical.ErrorResponse("cannot provider description, ttl, or max_ttl with credential_type = team_legacy, try credential_type = team."), nil
+		}
+	}
+
 	// if we're creating a role to manage a Team or Organization, we need to
 	// create the token now. User tokens will be created when credentials are
 	// read.
-	if roleEntry.Organization != "" || (roleEntry.TeamID != "" && !roleEntry.MultipleTeamTokens) {
+	if roleEntry.CredentialType == organizationCredentialType || roleEntry.CredentialType == teamLegacyCredentialType {
 		token, err := b.createToken(ctx, req.Storage, roleEntry)
 		if err != nil {
 			return nil, err
@@ -229,6 +274,17 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 
 	return nil, nil
 }
+
+// func (r *terraformRoleEntry) validate() error {
+// 	var errors *multierror.Error
+
+// 	allowedCredentialTypes := []string{userCredentialType, organizationCredentialType, teamCredentialType, teamLegacyCredentialType}
+// 	for _, credType := range r.CredentialTypes {
+// 		if !strutil.StrListContains(allowedCredentialTypes, credType) {
+// 			errors = multierror.Append(errors, fmt.Errorf("unrecognized credential type: %s", credType))
+// 		}
+// 	}
+// }
 
 func (b *tfBackend) pathRolesDelete(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	err := req.Storage.Delete(ctx, "role/"+d.Get("name").(string))

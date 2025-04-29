@@ -113,7 +113,7 @@ func (e *testEnv) ReadOrgToken(t *testing.T) {
 	require.NotNil(t, ot)
 }
 
-func (e *testEnv) AddTeamTokenRole(t *testing.T) {
+func (e *testEnv) AddTeamLegacyTokenRole(t *testing.T) {
 	req := &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "role/test-team-token",
@@ -128,7 +128,7 @@ func (e *testEnv) AddTeamTokenRole(t *testing.T) {
 	require.Nil(t, resp)
 }
 
-func (e *testEnv) ReadTeamToken(t *testing.T) {
+func (e *testEnv) ReadTeamLegacyToken(t *testing.T) {
 	req := &logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      "creds/test-team-token",
@@ -161,9 +161,9 @@ func (e *testEnv) AddMultiTeamTokenRole(t *testing.T) {
 		Path:      "role/test-multiteam-token",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"team_id":          e.TeamID,
-			"description":      e.Description,
-			"multi_team_token": true,
+			"team_id":         e.TeamID,
+			"description":     e.Description,
+			"credential_type": "team",
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
