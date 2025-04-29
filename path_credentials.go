@@ -72,7 +72,7 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 		return nil, errors.New("error retrieving role: role is nil")
 	}
 
-	if roleEntry.CredentialType == "user" || roleEntry.CredentialType == "team" {
+	if roleEntry.CredentialType == userCredentialType || roleEntry.CredentialType == teamCredentialType {
 		return b.createUserOrMultiTeamCreds(ctx, req, roleEntry)
 	}
 
@@ -139,7 +139,7 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntr
 	case isOrgToken(roleEntry.Organization, roleEntry.TeamID):
 		token, err = createOrgToken(ctx, client, roleEntry.Organization)
 	case isTeamToken(roleEntry.TeamID):
-		if roleEntry.CredentialType == "team" {
+		if roleEntry.CredentialType == teamCredentialType {
 			token, err = createTeamTokenWithOptions(ctx, client, *roleEntry)
 		} else {
 			// team_legacy tokens
