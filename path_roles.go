@@ -117,7 +117,7 @@ func pathRole(b *tfBackend) []*framework.Path {
 				},
 				"credential_type": {
 					Type:        framework.TypeString,
-					Description: "Credential type to be used for the token. Can be either 'user', 'org', 'team', or 'team_legacy'.",
+					Description: "Credential type to be used for the token. Can be either 'user', 'org', 'team', or 'team_legacy'(deprecated).",
 				},
 			},
 			Operations: map[logical.Operation]framework.OperationHandler{
@@ -275,17 +275,6 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 	return nil, nil
 }
 
-// func (r *terraformRoleEntry) validate() error {
-// 	var errors *multierror.Error
-
-// 	allowedCredentialTypes := []string{userCredentialType, organizationCredentialType, teamCredentialType, teamLegacyCredentialType}
-// 	for _, credType := range r.CredentialTypes {
-// 		if !strutil.StrListContains(allowedCredentialTypes, credType) {
-// 			errors = multierror.Append(errors, fmt.Errorf("unrecognized credential type: %s", credType))
-// 		}
-// 	}
-// }
-
 func (b *tfBackend) pathRolesDelete(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	err := req.Storage.Delete(ctx, "role/"+d.Get("name").(string))
 	if err != nil {
@@ -339,16 +328,30 @@ const (
 	pathRoleHelpDescription = `
 This path allows you to read and write roles used to generate Terraform Cloud /
 Enterprise tokens. You can configure a role to manage an organization's token, a
-team's token, or a user's dynamic tokens.
+team's token, legacy team's token, or a user's dynamic tokens; based on the 
+credential_type. The credential_type is used to determine the type of token
+to be generated. The credential_type can be one of the following:
+- user: A user token. 
+- organization: An organization token. 
+- team: A team token. This is the recommend team token credential type.
+- team_legacy: A legacy team token. This is the default credential type if
+  team_id is set.
 
-A Terraform Cloud/Enterprise Organization can only have one active token at a
-time. To manage an Organization's token, set the organization field.
+credential_type "user" can have multiple API tokens. To manage a user token, you 
+can user_id and credential_type "user". When a call to create creds, this role
+will be used to generate the token. 
 
-A Terraform Cloud/Enterprise Team can only have one active token at a time. To
-manage a Teams's token, set the team_id field.
+credential_type "team" can have multiple API tokens. To manage a team token, you
+can team_id and credential_type "team". When a call to create creds, this role 
+will be used to generate the token. This is the recommended team token
+credential type. You can set a ttl and max_ttl. Max_ttl will also set an expiration
+timer on the terraform token.
 
-A Terraform Cloud/Enterprise User can have multiple API tokens. To manage a
-User's token, set the user_id field.
+credential_type "organization" or "team_legacy" can only have one active token at a
+time. When a new token is created, the old token will be revoked. This is
+because Terraform Cloud/Enterprise does not support multiple active tokens for these
+types.
+
 `
 
 	pathRoleListHelpSynopsis    = `List the existing roles in Terraform Cloud / Enterprise backend`
