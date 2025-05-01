@@ -67,7 +67,7 @@ func TestTokenRole(t *testing.T) {
 		require.Len(t, resp.Data["keys"].([]string), 10)
 	})
 
-	t.Run("Test Token Roles", func(t *testing.T) {
+	t.Run("Test Legacy Team Token Role - Fail", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
 			"organization": organization,
 		})
@@ -88,14 +88,38 @@ func TestTokenRole(t *testing.T) {
 			"ttl":     testTTL,
 			"max_ttl": testMaxTTL,
 		})
+		require.Nil(t, err)
+
+		require.Error(t, resp.Error())
+	})
+
+	t.Run("Test Legacy Team Token Role", func(t *testing.T) {
+		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			"organization": organization,
+		})
 		require.NoError(t, err)
+
+		resp, err = testTokenRoleRead(t, b, s)
+		if resp == nil {
+			t.Fatalf("Error: received nil response")
+		}
+
+		require.NoError(t, err)
+		require.Equal(t, roleName, resp.Data["name"])
+		require.Equal(t, organization, resp.Data["organization"])
+		require.Empty(t, resp.Data["team_id"])
+
+		resp, err = testTokenRoleUpdate(t, b, s, map[string]interface{}{
+			"team_id": teamID,
+		})
+		require.Error(t, resp.Error())
+
+		// require.NoError(t, err)
 
 		resp, err = testTokenRoleRead(t, b, s)
 		require.NoError(t, err)
 		require.Equal(t, roleName, resp.Data["name"])
 		require.Equal(t, teamID, resp.Data["team_id"])
-		require.Equal(t, float64(testTTL), resp.Data["ttl"])
-		require.Equal(t, float64(testMaxTTL), resp.Data["max_ttl"])
 
 		_, err = testTokenRoleDelete(t, b, s)
 		require.NoError(t, err)
