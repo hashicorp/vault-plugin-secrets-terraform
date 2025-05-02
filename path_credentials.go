@@ -140,7 +140,7 @@ func (b *tfBackend) createToken(ctx context.Context, s logical.Storage, roleEntr
 		token, err = createOrgToken(ctx, client, roleEntry.Organization)
 	case isTeamToken(roleEntry.TeamID):
 		if roleEntry.CredentialType == teamCredentialType {
-			token, err = createTeamTokenWithOptions(ctx, client, *roleEntry)
+			token, err = createTeamTokenWithOptions(ctx, client, *roleEntry, b.System().MaxLeaseTTL())
 		} else {
 			// team_legacy tokens
 			token, err = createTeamLegacyToken(ctx, client, roleEntry.TeamID)
