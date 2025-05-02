@@ -61,7 +61,7 @@ func createTeamLegacyToken(ctx context.Context, c *client, teamID string) (*terr
 	}, nil
 }
 
-func createTeamTokenWithOptions(ctx context.Context, c *client, roleEntry terraformRoleEntry) (*terraformToken, error) {
+func createTeamTokenWithOptions(ctx context.Context, c *client, roleEntry terraformRoleEntry, systemMaxTTL time.Duration) (*terraformToken, error) {
 	teamID := roleEntry.TeamID
 
 	uniqueDescription := fmt.Sprintf("%s(%d)", roleEntry.Description, rand.Intn(10000))
@@ -69,8 +69,9 @@ func createTeamTokenWithOptions(ctx context.Context, c *client, roleEntry terraf
 		Description: uniqueDescription,
 	}
 
-	if roleEntry.MaxTTL > 0 {
-		expiredAt := time.Now().Add(roleEntry.MaxTTL)
+	maxTTL := max(roleEntry.MaxTTL, systemMaxTTL)
+	if maxTTL > 0 {
+		expiredAt := time.Now().Add(maxTTL)
 		createOpts.ExpiredAt = &expiredAt
 	}
 
