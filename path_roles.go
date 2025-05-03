@@ -341,11 +341,11 @@ credential_type "user" can have multiple API tokens. To manage a user token, you
 can user_id and credential_type "user". When a call to create creds, this role
 will be used to generate the token. 
 
-credential_type "team" can have multiple API tokens. To manage a team token, you
-can team_id and credential_type "team". When a call to create creds, this role 
-will be used to generate the token. This is the recommended team token
-credential type. You can set a ttl and max_ttl. Max_ttl will also set an expiration
-timer on the terraform token.
+credential_type "team" can have multiple API tokens. This is the recommended 
+team token credential type. To manage a team token, you can team_id 
+and credential_type "team". When a call to create creds, this role 
+will be used to generate the token. You can set a ttl and max_ttl. Max_ttl will 
+also set an expiration timer on the terraform token (including the system max ttl).
 
 credential_type "organization" or "team_legacy" can only have one active token at a
 time. When a new token is created, the old token will be revoked. This is
