@@ -35,6 +35,7 @@ func newAcceptanceTestEnv() (*testEnv, error) {
 		Organization: os.Getenv(envVarTerraformOrganization),
 		TeamID:       os.Getenv(envVarTerraformTeamID),
 		UserID:       os.Getenv(envVarTerraformUserID),
+		Description:  "acc-test",
 		Backend:      b,
 		Context:      ctx,
 		Storage:      &logical.InmemStorage{},

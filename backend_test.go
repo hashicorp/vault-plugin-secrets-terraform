@@ -164,6 +164,7 @@ func (e *testEnv) AddMultiTeamTokenRole(t *testing.T) {
 			"team_id":         e.TeamID,
 			"description":     e.Description,
 			"credential_type": "team",
+			"ttl":             "1m",
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
@@ -207,7 +208,7 @@ func (e *testEnv) CleanupMultiTeamTokens(t *testing.T) {
 		if err != nil {
 			t.Fatal("fatal getting client")
 		}
-		if err := client.TeamTokens.Delete(e.Context, id); err != nil {
+		if err := client.TeamTokens.DeleteByID(e.Context, id); err != nil {
 			t.Fatalf("unexpected error deleting multiteam token: %s", err)
 		}
 	}
