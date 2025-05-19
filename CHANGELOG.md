@@ -3,6 +3,8 @@
 FEATURES:
 * Added optional description for user token roles to provide a description in HCPTF UI: https://github.com/hashicorp/vault-plugin-secrets-terraform/pull/84
 
+* Added support for HCP TF multiple team tokens. Introduced new optional parameter `credential_type` that can be used with value `team` to issue multiple team tokens. Tokens can optionally have a ttl and max_ttl that is respected via normal lease operations as well as Expired by HCP TF API at their expected time: https://github.com/hashicorp/vault-plugin-secrets-terraform/pull/89
+
 ## 0.11.0
 ### FEb 7, 2025
 IMPROVEMENTS:
