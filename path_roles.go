@@ -251,7 +251,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 
 	if roleEntry.CredentialType == teamLegacyCredentialType {
 		if roleEntry.Description != "" || roleEntry.TTL != 0 || roleEntry.MaxTTL != 0 {
-			return logical.ErrorResponse("cannot provider description, ttl, or max_ttl with credential_type = team_legacy, try credential_type = team."), nil
+			return logical.ErrorResponse("cannot provide description, ttl, or max_ttl with credential_type = team_legacy, try credential_type = team."), fmt.Errorf("test error")
 		}
 	}
 
@@ -328,22 +328,22 @@ const (
 	pathRoleHelpDescription = `
 This path allows you to read and write roles used to generate Terraform Cloud /
 Enterprise tokens. You can configure a role to manage an organization's token, a
-team's token, legacy team's token, or a user's dynamic tokens; based on the 
+team's token, legacy team's token, or a user's dynamic tokens, based on the 
 credential_type. The credential_type is used to determine the type of token
 to be generated. The credential_type can be one of the following:
 - user: A user token. 
 - organization: An organization token. 
 - team: A team token. This is the recommend team token credential type.
 - team_legacy: A legacy team token. This is the default credential type if
-  team_id is set.
+  team_id is set but credential_type is left empty.
 
 credential_type "user" can have multiple API tokens. To manage a user token, you 
-can user_id and credential_type "user". When a call to create creds, this role
+can user_id and credential_type "user". When issuing a call to create creds, this role
 will be used to generate the token. 
 
 credential_type "team" can have multiple API tokens. This is the recommended 
-team token credential type. To manage a team token, you can team_id 
-and credential_type "team". When a call to create creds, this role 
+team token credential type. To manage a team token, you can set a team_id 
+and set credential_type to "team". When issuing a call to create creds, this role 
 will be used to generate the token. You can set a ttl and max_ttl. Max_ttl will 
 also set an expiration timer on the terraform token (including the system max ttl).
 

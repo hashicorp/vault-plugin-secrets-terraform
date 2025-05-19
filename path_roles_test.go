@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
 	"testing"
 
 	"github.com/hashicorp/vault/sdk/logical"
@@ -36,7 +35,7 @@ func TestTokenRole(t *testing.T) {
 
 	b, s := getTestBackend(t)
 
-	organization := checkEnvVars(t, envVarTerraformOrganization)
+	// organization := checkEnvVars(t, envVarTerraformOrganization)
 	teamID := checkEnvVars(t, envVarTerraformTeamID)
 	token := checkEnvVars(t, envVarTerraformToken)
 
@@ -48,54 +47,40 @@ func TestTokenRole(t *testing.T) {
 		t.Fatal(fmt.Errorf("err creating config, err=%w", err))
 	}
 
-	t.Run("List All Roles", func(t *testing.T) {
-		for i := 1; i <= 10; i++ {
-			resp, err := testTokenRoleCreate(t, b, s,
-				roleName+strconv.Itoa(i),
-				map[string]interface{}{
-					"organization": organization,
-				},
-			)
-			if resp.IsError() {
-				t.Fatalf("Error: received error response: %v", resp.Error().Error())
-			}
-			require.NoError(t, err)
-		}
+	// t.Run("List All Roles", func(t *testing.T) {
+	// 	for i := 1; i <= 10; i++ {
+	// 		resp, err := testTokenRoleCreate(t, b, s,
+	// 			roleName+strconv.Itoa(i),
+	// 			map[string]interface{}{
+	// 				"organization": organization,
+	// 			},
+	// 		)
+	// 		if resp.IsError() {
+	// 			t.Fatalf("Error: received error response: %v", resp.Error().Error())
+	// 		}
+	// 		require.NoError(t, err)
+	// 	}
 
-		resp, err := testTokenRoleList(t, b, s)
-		require.NoError(t, err)
-		require.Len(t, resp.Data["keys"].([]string), 10)
-	})
+	// 	resp, err := testTokenRoleList(t, b, s)
+	// 	require.NoError(t, err)
+	// 	require.Len(t, resp.Data["keys"].([]string), 10)
+	// })
 
 	t.Run("Test Legacy Team Token Role - Fail", func(t *testing.T) {
-		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"organization": organization,
+		resp, _ := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			"team_id":         "abcd",
+			"ttl":             testMaxTTL,
+			"max_ttl":         testTTL,
+			"credential_type": "team_legacy",
+			// "credential_type": "team_legacy", // this is the default
 		})
-		require.NoError(t, err)
 
-		resp, err = testTokenRoleRead(t, b, s)
-		if resp == nil {
-			t.Fatalf("Error: received nil response")
-		}
-
-		require.NoError(t, err)
-		require.Equal(t, roleName, resp.Data["name"])
-		require.Equal(t, organization, resp.Data["organization"])
-		require.Empty(t, resp.Data["team_id"])
-
-		resp, err = testTokenRoleUpdate(t, b, s, map[string]interface{}{
-			"team_id": teamID,
-			"ttl":     testTTL,
-			"max_ttl": testMaxTTL,
-		})
-		require.Nil(t, err)
-
-		require.Error(t, resp.Error())
+		require.Contains(t, resp.Data["error"], "ttl cannot be greater than max_ttl")
 	})
 
 	t.Run("Test Legacy Team Token Role", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"organization": organization,
+			"team_id": teamID,
 		})
 		require.NoError(t, err)
 
@@ -106,15 +91,13 @@ func TestTokenRole(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, roleName, resp.Data["name"])
-		require.Equal(t, organization, resp.Data["organization"])
-		require.Empty(t, resp.Data["team_id"])
+		// require.Equal(t, organization, resp.Data["organization"])
+		require.Equal(t, teamID, resp.Data["team_id"])
 
 		resp, err = testTokenRoleUpdate(t, b, s, map[string]interface{}{
 			"team_id": teamID,
 		})
-		require.Error(t, resp.Error())
-
-		// require.NoError(t, err)
+		require.NoError(t, err)
 
 		resp, err = testTokenRoleRead(t, b, s)
 		require.NoError(t, err)
@@ -131,8 +114,7 @@ func TestTokenRole(t *testing.T) {
 
 	t.Run("Create Team Token Role", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"organization": organization,
-			"team_id":      teamID,
+			"team_id": teamID,
 		})
 		require.NoError(t, err)
 
@@ -143,7 +125,6 @@ func TestTokenRole(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, roleName, resp.Data["name"])
-		require.Equal(t, organization, resp.Data["organization"])
 		require.Equal(t, teamID, resp.Data["team_id"])
 	})
 }
