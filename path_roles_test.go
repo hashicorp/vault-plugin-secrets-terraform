@@ -67,9 +67,20 @@ func TestTokenRole(t *testing.T) {
 		require.Len(t, resp.Data["keys"].([]string), 10)
 	})
 
-	t.Run("Test Token Roles", func(t *testing.T) {
+	t.Run("Test Legacy Team Token Role - Fail", func(t *testing.T) {
+		resp, _ := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			"team_id":         "abcd",
+			"ttl":             testMaxTTL,
+			"max_ttl":         testTTL,
+			"credential_type": "team_legacy",
+		})
+
+		require.Contains(t, resp.Data["error"], "ttl cannot be greater than max_ttl")
+	})
+
+	t.Run("Test Legacy Team Token Role", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"organization": organization,
+			"team_id": teamID,
 		})
 		require.NoError(t, err)
 
@@ -80,13 +91,10 @@ func TestTokenRole(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, roleName, resp.Data["name"])
-		require.Equal(t, organization, resp.Data["organization"])
-		require.Empty(t, resp.Data["team_id"])
+		require.Equal(t, teamID, resp.Data["team_id"])
 
 		resp, err = testTokenRoleUpdate(t, b, s, map[string]interface{}{
 			"team_id": teamID,
-			"ttl":     testTTL,
-			"max_ttl": testMaxTTL,
 		})
 		require.NoError(t, err)
 
@@ -94,8 +102,6 @@ func TestTokenRole(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, roleName, resp.Data["name"])
 		require.Equal(t, teamID, resp.Data["team_id"])
-		require.Equal(t, float64(testTTL), resp.Data["ttl"])
-		require.Equal(t, float64(testMaxTTL), resp.Data["max_ttl"])
 
 		_, err = testTokenRoleDelete(t, b, s)
 		require.NoError(t, err)
@@ -107,8 +113,7 @@ func TestTokenRole(t *testing.T) {
 
 	t.Run("Create Team Token Role", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"organization": organization,
-			"team_id":      teamID,
+			"team_id": teamID,
 		})
 		require.NoError(t, err)
 
@@ -119,8 +124,63 @@ func TestTokenRole(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, roleName, resp.Data["name"])
-		require.Equal(t, organization, resp.Data["organization"])
 		require.Equal(t, teamID, resp.Data["team_id"])
+	})
+}
+
+func TestMultiTeamRole(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
+	b, s := getTestBackend(t)
+
+	teamID := checkEnvVars(t, envVarTerraformTeamID)
+
+	descriptionOriginal := "description1"
+	descriptionUpdated := "description2"
+
+	t.Run("Create MultiTeam Role - pass", func(t *testing.T) {
+		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
+			"team_id":         teamID,
+			"credential_type": "team",
+			"max_ttl":         "3600",
+			"description":     descriptionOriginal,
+		})
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.Nil(t, resp)
+	})
+	t.Run("Read MultiTeam Role", func(t *testing.T) {
+		resp, err := testTokenRoleRead(t, b, s)
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.NotNil(t, resp)
+		require.Equal(t, resp.Data["team_id"], teamID)
+		require.Equal(t, resp.Data["description"], descriptionOriginal) // cred description includes random int
+	})
+	t.Run("Update MultiTeam Role", func(t *testing.T) {
+		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
+			"credential_type": "team",
+			"ttl":             "1m",
+			"max_ttl":         "5h",
+			"description":     descriptionUpdated,
+		})
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.Nil(t, resp)
+	})
+	t.Run("Re-read MultiTeam Role", func(t *testing.T) {
+		resp, err := testTokenRoleRead(t, b, s)
+
+		require.Nil(t, err)
+		require.Nil(t, resp.Error())
+		require.NotNil(t, resp)
+		require.Equal(t, resp.Data["team_id"], teamID)
+		require.Equal(t, resp.Data["description"], descriptionUpdated)
 	})
 }
 

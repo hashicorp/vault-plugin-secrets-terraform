@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/hashicorp/go-tfe"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -42,7 +44,7 @@ func createOrgToken(ctx context.Context, c *client, organization string) (*terra
 	}, nil
 }
 
-func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformToken, error) {
+func createTeamLegacyToken(ctx context.Context, c *client, teamID string) (*terraformToken, error) {
 	if _, err := c.Teams.Read(ctx, teamID); err != nil {
 		return nil, err
 	}
@@ -56,6 +58,33 @@ func createTeamToken(ctx context.Context, c *client, teamID string) (*terraformT
 		ID:          token.ID,
 		Description: token.Description,
 		Token:       token.Token,
+	}, nil
+}
+
+func createTeamTokenWithOptions(ctx context.Context, c *client, roleEntry terraformRoleEntry, systemMaxTTL time.Duration) (*terraformToken, error) {
+	teamID := roleEntry.TeamID
+
+	uniqueDescription := fmt.Sprintf("%s(%d)", roleEntry.Description, rand.Intn(10000))
+	createOpts := tfe.TeamTokenCreateOptions{
+		Description: uniqueDescription,
+	}
+
+	maxTTL := max(roleEntry.MaxTTL, systemMaxTTL)
+	if maxTTL > 0 {
+		expiredAt := time.Now().Add(maxTTL)
+		createOpts.ExpiredAt = &expiredAt
+	}
+
+	token, err := c.TeamTokens.CreateWithOptions(ctx, teamID, createOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &terraformToken{
+		ID:          token.ID,
+		Description: uniqueDescription,
+		Token:       token.Token,
+		ExpiredAt:   token.ExpiredAt,
 	}, nil
 }
 

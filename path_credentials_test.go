@@ -35,6 +35,7 @@ func newAcceptanceTestEnv() (*testEnv, error) {
 		Organization: os.Getenv(envVarTerraformOrganization),
 		TeamID:       os.Getenv(envVarTerraformTeamID),
 		UserID:       os.Getenv(envVarTerraformUserID),
+		Description:  "acc-test",
 		Backend:      b,
 		Context:      ctx,
 		Storage:      &logical.InmemStorage{},
@@ -56,7 +57,7 @@ func TestAcceptanceOrganizationToken(t *testing.T) {
 	t.Run("read organization token cred", acceptanceTestEnv.ReadOrgToken)
 }
 
-func TestAcceptanceTeamToken(t *testing.T) {
+func TestAcceptanceTeamLegacyToken(t *testing.T) {
 	if !runAcceptanceTests {
 		t.SkipNow()
 	}
@@ -67,8 +68,25 @@ func TestAcceptanceTeamToken(t *testing.T) {
 	}
 
 	t.Run("add config", acceptanceTestEnv.AddConfig)
-	t.Run("add team token role", acceptanceTestEnv.AddTeamTokenRole)
-	t.Run("read team token cred", acceptanceTestEnv.ReadTeamToken)
+	t.Run("add team token role", acceptanceTestEnv.AddTeamLegacyTokenRole)
+	t.Run("read team token cred", acceptanceTestEnv.ReadTeamLegacyToken)
+}
+
+func TestAcceptanceMultiTeamToken(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
+	acceptanceTestEnv, err := newAcceptanceTestEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("add config", acceptanceTestEnv.AddConfig)
+	t.Run("add multiteam token role", acceptanceTestEnv.AddMultiTeamTokenRole)
+	t.Run("read multiteam token cred", acceptanceTestEnv.ReadMultiTeamToken)
+	t.Run("read multiteam token cred", acceptanceTestEnv.ReadMultiTeamToken)
+	t.Run("cleanup multiteam tokens", acceptanceTestEnv.CleanupMultiTeamTokens)
 }
 
 func TestAcceptanceUserToken(t *testing.T) {
