@@ -59,7 +59,7 @@ func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
 	if r.TeamID != "" {
 		respData["team_id"] = r.TeamID
 		// Default to legacy team credential type
-		if r.CredentialType == "" {
+		if r.CredentialType == "" || r.CredentialType == teamLegacyCredentialType {
 			r.CredentialType = teamLegacyCredentialType
 			respData["credential_type"] = teamLegacyCredentialType
 		} else {
@@ -220,7 +220,7 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 
 	if teamID, ok := d.GetOk("team_id"); ok {
 		roleEntry.TeamID = teamID.(string)
-		if roleEntry.CredentialType == "" {
+		if roleEntry.CredentialType == "" || roleEntry.CredentialType == teamLegacyCredentialType {
 			roleEntry.CredentialType = teamLegacyCredentialType
 		}
 	}
