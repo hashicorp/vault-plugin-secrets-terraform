@@ -54,9 +54,18 @@ func createTeamLegacyToken(ctx context.Context, c *client, teamID string) (*terr
 		return nil, err
 	}
 
+	if token == nil {
+		return nil, errors.New("team token creation returned nil token")
+	}
+
+	var description string
+	if token.Description != nil {
+		description = *token.Description
+	}
+
 	return &terraformToken{
 		ID:          token.ID,
-		Description: token.Description,
+		Description: description,
 		Token:       token.Token,
 	}, nil
 }
@@ -66,7 +75,7 @@ func createTeamTokenWithOptions(ctx context.Context, c *client, roleEntry terraf
 
 	uniqueDescription := fmt.Sprintf("%s(%d)", roleEntry.Description, rand.Intn(10000))
 	createOpts := tfe.TeamTokenCreateOptions{
-		Description: uniqueDescription,
+		Description: &uniqueDescription,
 	}
 
 	maxTTL := max(roleEntry.MaxTTL, systemMaxTTL)
