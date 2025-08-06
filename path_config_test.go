@@ -6,7 +6,9 @@ package tfc
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/require"
@@ -129,11 +131,61 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 		actualV, ok := resp.Data[k]
 
 		if !ok {
-			return fmt.Errorf(`expected data["%s"] = %v but was not included in read output"`, k, expectedV)
+			return fmt.Errorf(`expected data["%s"] = %v but was not included in read output\"`, k, expectedV)
 		} else if expectedV != actualV {
-			return fmt.Errorf(`expected data["%s"] = %v, instead got %v"`, k, expectedV, actualV)
+			return fmt.Errorf(`expected data["%s"] = %v, instead got %v\"`, k, expectedV, actualV)
 		}
 	}
 
 	return nil
 }
+
+// TestConfig_Rotation tests the rotation functionality.
+// This is an acceptance test that requires valid credentials.
+func TestConfig_Rotation(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
+	tokenType := os.Getenv(envVarTerraformTokenType)
+	id := os.Getenv(envVarTerraformID)
+	token := os.Getenv(envVarTerraformToken)
+
+	if tokenType == "" || id == "" || token == "" {
+		t.Skipf("Skipping rotation test, set %s, %s, and %s to run", envVarTerraformTokenType, envVarTerraformID, envVarTerraformToken)
+	}
+
+	b, reqStorage := getTestBackend(t)
+
+	t.Run("Test Token Rotation", func(t *testing.T) {
+		// Create a config with rotation parameters
+		configData := map[string]interface{}{
+			"token":      token,
+			"token_type": tokenType,
+			"id":         id,
+		}
+
+		err := testConfigCreate(t, b, reqStorage, configData)
+		require.NoError(t, err)
+
+		// Store original token for comparison
+		originalToken := token
+
+		// Trigger rotation using the RotateCredential function
+		err = b.RotateCredential(context.Background(), &logical.Request{
+			Storage: reqStorage,
+		})
+		require.NoError(t, err)
+
+		// Read the config again and verify the token has changed
+		resp, err := b.HandleRequest(context.Background(), &logical.Request{
+			Operation: logical.ReadOperation,
+			Path:      "config",
+			Storage:   reqStorage,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.NotEqual(t, token, resp.Data["token"])
+	})
+}
+

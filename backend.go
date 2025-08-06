@@ -5,6 +5,7 @@ package tfc
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -57,6 +58,10 @@ func backend() *tfBackend {
 		},
 		BackendType: logical.TypeLogical,
 		Invalidate:  b.invalidate,
+		RotateCredential: func(ctx context.Context, req *logical.Request) error {
+			_, err := b.rotateRoot(ctx, req)
+			return err
+		},
 	}
 
 	return &b
@@ -104,6 +109,47 @@ func (b *tfBackend) getClient(ctx context.Context, s logical.Storage) (*client, 
 	}
 
 	return b.client, nil
+}
+
+func (b *tfBackend) rotateRoot(ctx context.Context, req *logical.Request) (*logical.Response, error) {
+	config, err := getConfig(ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.Token == "" {
+		return logical.ErrorResponse("backend is missing token"), nil
+	}
+
+	if config.TokenType == "" || config.ID == "" {
+		return logical.ErrorResponse("token_type and id must be configured for token rotation"), nil
+	}
+
+	client, err := b.getClient(ctx, req.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("error getting client: %w", err)
+	}
+
+	currentToken := config.Token
+	token, err := client.RotateRootToken(ctx, config.TokenType, config.ID, config.OldToken, currentToken)
+	if err != nil {
+		return nil, fmt.Errorf("error rotating root token: %w", err)
+	}
+
+	config.Token = token
+
+	entry, err := logical.StorageEntryJSON(configStoragePath, config)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := req.Storage.Put(ctx, entry); err != nil {
+		return nil, err
+	}
+
+	b.reset()
+
+	return nil, nil
 }
 
 const backendHelp = `

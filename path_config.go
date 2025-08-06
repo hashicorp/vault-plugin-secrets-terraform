@@ -9,7 +9,9 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/automatedrotationutil"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/sdk/rotation"
 )
 
 const (
@@ -17,13 +19,18 @@ const (
 )
 
 type tfConfig struct {
-	Token    string `json:"token"`
-	Address  string `json:"address"`
-	BasePath string `json:"base_path"`
+	automatedrotationutil.AutomatedRotationParams
+
+	Token     string `json:"token"`
+	TokenType string `json:"token_type,omitempty"`
+	ID        string `json:"id,omitempty"`
+	OldToken  string `json:"old_token,omitempty"`
+	Address   string `json:"address"`
+	BasePath  string `json:"base_path"`
 }
 
 func pathConfig(b *tfBackend) *framework.Path {
-	return &framework.Path{
+	p := &framework.Path{
 		Pattern: "config",
 		DisplayAttrs: &framework.DisplayAttributes{
 			OperationPrefix: operationPrefixTerraformCloud,
@@ -37,6 +44,19 @@ func pathConfig(b *tfBackend) *framework.Path {
 					Name:      "Token",
 					Sensitive: true,
 				},
+			},
+			"token_type": {
+				Type:        framework.TypeString,
+				Description: "The type of token (organization, team, user). Required for rotation.",
+			},
+			"id": {
+				Type:        framework.TypeString,
+				Description: "The ID of the organization, team, or user associated with the token. Required for rotation when token_type is specified.",
+			},
+			"old_token": {
+				Type:        framework.TypeString,
+				Description: "The behavior for handling the old token. Can be 'delete' or 'keep'. Defaults to 'delete'.",
+				Default:     "delete",
 			},
 			"address": {
 				Type: framework.TypeString,
@@ -81,6 +101,11 @@ func pathConfig(b *tfBackend) *framework.Path {
 		HelpSynopsis:    pathConfigHelpSynopsis,
 		HelpDescription: pathConfigHelpDescription,
 	}
+
+	// Add automated rotation fields
+	automatedrotationutil.AddAutomatedRotationFields(p.Fields)
+
+	return p
 }
 
 func (b *tfBackend) pathConfigExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
@@ -98,11 +123,19 @@ func (b *tfBackend) pathConfigRead(ctx context.Context, req *logical.Request, da
 		return nil, err
 	}
 
+	if config == nil {
+		return nil, nil
+	}
+
+	configData := map[string]interface{}{
+		"address":   config.Address,
+		"base_path": config.BasePath,
+	}
+
+	config.PopulateAutomatedRotationData(configData)
+
 	return &logical.Response{
-		Data: map[string]interface{}{
-			"address":   config.Address,
-			"base_path": config.BasePath,
-		},
+		Data: configData,
 	}, nil
 }
 
@@ -119,24 +152,112 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		config = new(tfConfig)
 	}
 
-	address := data.Get("address").(string)
-	basePath := data.Get("base_path").(string)
-
-	config.Address = address
-	config.BasePath = basePath
-
-	token, ok := data.GetOk("token")
-	if ok {
-		config.Token = token.(string)
+	if address, ok := data.GetOk("address"); ok {
+		config.Address = address.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.Address = data.Get("address").(string)
 	}
 
+	if basePath, ok := data.GetOk("base_path"); ok {
+		config.BasePath = basePath.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.BasePath = data.Get("base_path").(string)
+	}
+
+	if token, ok := data.GetOk("token"); ok {
+		config.Token = token.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.Token = data.Get("token").(string)
+	}
+
+	if tokenType, ok := data.GetOk("token_type"); ok {
+		config.TokenType = tokenType.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.TokenType = data.Get("token_type").(string)
+	}
+
+	if id, ok := data.GetOk("id"); ok {
+		config.ID = id.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.ID = data.Get("id").(string)
+	}
+
+	// Validate token_type and id fields for rotation
+	if config.TokenType != "" {
+		if config.TokenType != "organization" && config.TokenType != "team" && config.TokenType != "user" {
+			return logical.ErrorResponse("invalid token_type: must be 'organization', 'team', or 'user'"), nil
+		}
+		if config.ID == "" {
+			return logical.ErrorResponse("id is required when token_type is specified"), nil
+		}
+	}
+
+	if oldToken, ok := data.GetOk("old_token"); ok {
+		config.OldToken = oldToken.(string)
+		if config.OldToken != "delete" && config.OldToken != "keep" {
+			return logical.ErrorResponse("invalid old_token: must be 'delete' or 'keep'"), nil
+		}
+	} else if req.Operation == logical.CreateOperation {
+		config.OldToken = data.Get("old_token").(string)
+	}
+
+	// Parse automated rotation fields
+	if err := config.ParseAutomatedRotationFields(data); err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	var performedRotationManagerOperation string
+	if config.ShouldDeregisterRotationJob() {
+		performedRotationManagerOperation = rotation.PerformedDeregistration
+		// Disable Automated Rotation and Deregister credentials if required
+		deregisterReq := &rotation.RotationJobDeregisterRequest{
+			MountPoint: req.MountPoint,
+			ReqPath:    req.Path,
+		}
+
+		b.Logger().Debug("Deregistering rotation job", "mount", req.MountPoint+req.Path)
+		if err := b.System().DeregisterRotationJob(ctx, deregisterReq); err != nil {
+			return logical.ErrorResponse("error deregistering rotation job: %s", err), nil
+		}
+	} else if config.ShouldRegisterRotationJob() {
+		performedRotationManagerOperation = rotation.PerformedRegistration
+		// Register the rotation job if it's required.
+		cfgReq := &rotation.RotationJobConfigureRequest{
+			MountPoint:       req.MountPoint,
+			ReqPath:          req.Path,
+			RotationSchedule: config.RotationSchedule,
+			RotationWindow:   config.RotationWindow,
+			RotationPeriod:   config.RotationPeriod,
+		}
+
+		b.Logger().Debug("Registering rotation job", "mount", req.MountPoint+req.Path)
+		if _, err = b.System().RegisterRotationJob(ctx, cfgReq); err != nil {
+			return logical.ErrorResponse("error registering rotation job: %s", err), nil
+		}
+	}
+
+	// Save the config
 	entry, err := logical.StorageEntryJSON(configStoragePath, config)
 	if err != nil {
-		return nil, err
+		wrappedError := err
+		if performedRotationManagerOperation != "" {
+			b.Logger().Error("write to storage failed but the rotation manager still succeeded.",
+				"operation", performedRotationManagerOperation, "mount", req.MountPoint, "path", req.Path)
+			wrappedError = fmt.Errorf("write to storage failed but the rotation manager still succeeded; "+
+				"operation=%s, mount=%s, path=%s, storageError=%s", performedRotationManagerOperation, req.MountPoint, req.Path, err)
+		}
+		return nil, wrappedError
 	}
 
 	if err := req.Storage.Put(ctx, entry); err != nil {
-		return nil, err
+		wrappedError := err
+		if performedRotationManagerOperation != "" {
+			b.Logger().Error("write to storage failed but the rotation manager still succeeded.",
+				"operation", performedRotationManagerOperation, "mount", req.MountPoint, "path", req.Path)
+			wrappedError = fmt.Errorf("write to storage failed but the rotation manager still succeeded; "+
+				"operation=%s, mount=%s, path=%s, storageError=%s", performedRotationManagerOperation, req.MountPoint, req.Path, err)
+		}
+		return nil, wrappedError
 	}
 
 	// reset the client so the next invocation will pick up the new configuration
@@ -186,4 +307,19 @@ to allow Vault to create tokens.
 
 If you are running Terraform Enterprise, you can specify the address and base path
 for your instance and API endpoint.
+
+Automatic token rotation (requires Vault Enterprise):
+For automatic token rotation, specify:
+- token_type: The type of token (organization, team, user)
+- id: The ID of the organization, team, or user associated with the token
+- old_token: How to handle the old token ("delete" or "keep", defaults to "delete")
+- rotation_period or rotation_schedule: When to rotate the token
+
+Example with rotation:
+vault write terraform/config \
+  token="your-token" \
+  token_type="team" \
+  id="team-123" \
+  old_token="delete" \
+  rotation_period="24h"
 `
