@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/require"
@@ -168,10 +167,6 @@ func TestConfig_Rotation(t *testing.T) {
 		err := testConfigCreate(t, b, reqStorage, configData)
 		require.NoError(t, err)
 
-		// Store original token for comparison
-		originalToken := token
-
-		// Trigger rotation using the RotateCredential function
 		err = b.RotateCredential(context.Background(), &logical.Request{
 			Storage: reqStorage,
 		})
@@ -188,4 +183,3 @@ func TestConfig_Rotation(t *testing.T) {
 		require.NotEqual(t, token, resp.Data["token"])
 	})
 }
-

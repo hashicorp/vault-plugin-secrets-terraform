@@ -23,6 +23,7 @@ type tfConfig struct {
 
 	Token     string `json:"token"`
 	TokenType string `json:"token_type,omitempty"`
+	TokenID   string `json:"token_id,omitempty"`
 	ID        string `json:"id,omitempty"`
 	OldToken  string `json:"old_token,omitempty"`
 	Address   string `json:"address"`
@@ -45,17 +46,22 @@ func pathConfig(b *tfBackend) *framework.Path {
 					Sensitive: true,
 				},
 			},
+			"rotate_token_immediately": {
+				Type:        framework.TypeBool,
+				Description: "If true and rotation is setup, will immediately rotate the token provided to configuration. Only takes effect when writing the config.",
+				Default:     true,
+			},
 			"token_type": {
 				Type:        framework.TypeString,
 				Description: "The type of token (organization, team, user). Required for rotation.",
 			},
 			"id": {
 				Type:        framework.TypeString,
-				Description: "The ID of the organization, team, or user associated with the token. Required for rotation when token_type is specified.",
+				Description: "The ID of the token. Required for rotation. Token IDs begin with `at-<>`.",
 			},
 			"old_token": {
 				Type:        framework.TypeString,
-				Description: "The behavior for handling the old token. Can be 'delete' or 'keep'. Defaults to 'delete'.",
+				Description: "The behavior for handling the old token when rotating. Can be 'delete' or 'keep'. Defaults to 'delete'.",
 				Default:     "delete",
 			},
 			"address": {
@@ -132,7 +138,13 @@ func (b *tfBackend) pathConfigRead(ctx context.Context, req *logical.Request, da
 		"base_path": config.BasePath,
 	}
 
-	config.PopulateAutomatedRotationData(configData)
+	if config.ShouldRegisterRotationJob() {
+		config.PopulateAutomatedRotationData(configData)
+		configData["token_type"] = config.TokenType
+		configData["id"] = config.ID
+		configData["old_token"] = config.OldToken
+
+	}
 
 	return &logical.Response{
 		Data: configData,
@@ -170,37 +182,6 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		config.Token = data.Get("token").(string)
 	}
 
-	if tokenType, ok := data.GetOk("token_type"); ok {
-		config.TokenType = tokenType.(string)
-	} else if req.Operation == logical.CreateOperation {
-		config.TokenType = data.Get("token_type").(string)
-	}
-
-	if id, ok := data.GetOk("id"); ok {
-		config.ID = id.(string)
-	} else if req.Operation == logical.CreateOperation {
-		config.ID = data.Get("id").(string)
-	}
-
-	// Validate token_type and id fields for rotation
-	if config.TokenType != "" {
-		if config.TokenType != "organization" && config.TokenType != "team" && config.TokenType != "user" {
-			return logical.ErrorResponse("invalid token_type: must be 'organization', 'team', or 'user'"), nil
-		}
-		if config.ID == "" {
-			return logical.ErrorResponse("id is required when token_type is specified"), nil
-		}
-	}
-
-	if oldToken, ok := data.GetOk("old_token"); ok {
-		config.OldToken = oldToken.(string)
-		if config.OldToken != "delete" && config.OldToken != "keep" {
-			return logical.ErrorResponse("invalid old_token: must be 'delete' or 'keep'"), nil
-		}
-	} else if req.Operation == logical.CreateOperation {
-		config.OldToken = data.Get("old_token").(string)
-	}
-
 	// Parse automated rotation fields
 	if err := config.ParseAutomatedRotationFields(data); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
@@ -234,11 +215,44 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		if _, err = b.System().RegisterRotationJob(ctx, cfgReq); err != nil {
 			return logical.ErrorResponse("error registering rotation job: %s", err), nil
 		}
+
+		// it should be possible to determine token type from the token itself
+		// but the go-tfe library does not currently support this: https://github.com/hashicorp/go-tfe/blob/main/user.go#L47
+		// so for now we will require the user to specify it
+		if tokenType, ok := data.GetOk("token_type"); ok {
+			config.TokenType = tokenType.(string)
+		} else if req.Operation == logical.CreateOperation {
+			config.TokenType = data.Get("token_type").(string)
+		}
+
+		if id, ok := data.GetOk("id"); ok {
+			config.ID = id.(string)
+		} else if req.Operation == logical.CreateOperation {
+			config.ID = data.Get("id").(string)
+		}
+
+		// Validate token_type and id fields for rotation
+		if config.TokenType != "" {
+			if config.TokenType != "organization" && config.TokenType != "team" && config.TokenType != "user" {
+				return logical.ErrorResponse("invalid token_type: must be 'organization', 'team', or 'user'"), nil
+			}
+			if config.ID == "" {
+				return logical.ErrorResponse("id is required when token_type is specified"), nil
+			}
+		}
+
+		if oldToken, ok := data.GetOk("old_token"); ok {
+			config.OldToken = oldToken.(string)
+			if config.OldToken != "delete" && config.OldToken != "keep" {
+				return logical.ErrorResponse("invalid old_token: must be 'delete' or 'keep'"), nil
+			}
+		} else if req.Operation == logical.CreateOperation {
+			config.OldToken = data.Get("old_token").(string)
+		}
 	}
 
 	// Save the config
-	entry, err := logical.StorageEntryJSON(configStoragePath, config)
-	if err != nil {
+	if err := putConfigToStorage(ctx, req, config); err != nil {
 		wrappedError := err
 		if performedRotationManagerOperation != "" {
 			b.Logger().Error("write to storage failed but the rotation manager still succeeded.",
@@ -249,15 +263,20 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		return nil, wrappedError
 	}
 
-	if err := req.Storage.Put(ctx, entry); err != nil {
-		wrappedError := err
-		if performedRotationManagerOperation != "" {
-			b.Logger().Error("write to storage failed but the rotation manager still succeeded.",
-				"operation", performedRotationManagerOperation, "mount", req.MountPoint, "path", req.Path)
-			wrappedError = fmt.Errorf("write to storage failed but the rotation manager still succeeded; "+
-				"operation=%s, mount=%s, path=%s, storageError=%s", performedRotationManagerOperation, req.MountPoint, req.Path, err)
+	// If rotation is enabled and the rotate_token_immediately flag is true,
+	// rotate the token immediately.
+	if config.ShouldRegisterRotationJob() && data.Get("rotate_token_immediately").(bool) {
+		newToken, newID, err := rotateOnWrite(ctx, *config)
+		if err != nil {
+			b.Logger().Error("error immediately rotating token when writing backend configuration. rotation manager stil succeeded", "error", err)
+			return nil, err
 		}
-		return nil, wrappedError
+		config.Token, config.ID = newToken, newID
+
+		if err := putConfigToStorage(ctx, req, config); err != nil {
+			b.Logger().Error("error immediately rotating token when writing backend configuration. rotation manager still succeeded", "error", err)
+			return nil, fmt.Errorf("error writing updated config after immediate rotation: %w", err)
+		}
 	}
 
 	// reset the client so the next invocation will pick up the new configuration
@@ -274,6 +293,19 @@ func (b *tfBackend) pathConfigDelete(ctx context.Context, req *logical.Request, 
 	}
 
 	return nil, err
+}
+
+func putConfigToStorage(ctx context.Context, req *logical.Request, config *tfConfig) error {
+	entry, err := logical.StorageEntryJSON(configStoragePath, config)
+	if err != nil {
+		return err
+	}
+
+	if err := req.Storage.Put(ctx, entry); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getConfig(ctx context.Context, s logical.Storage) (*tfConfig, error) {
@@ -293,6 +325,15 @@ func getConfig(ctx context.Context, s logical.Storage) (*tfConfig, error) {
 
 	// return the config, we are done
 	return config, nil
+}
+
+func rotateOnWrite(ctx context.Context, config tfConfig) (string, string, error) {
+	client, err := newClient(&config)
+	if err != nil {
+		return "", "", err
+	}
+
+	return client.RotateRootToken(ctx, config.TokenType, config.ID, config.OldToken)
 }
 
 const pathConfigHelpSynopsis = `Configure the Terraform Cloud / Enterprise backend.`
@@ -319,7 +360,7 @@ Example with rotation:
 vault write terraform/config \
   token="your-token" \
   token_type="team" \
-  id="team-123" \
+  id="at-123" \
   old_token="delete" \
   rotation_period="24h"
 `

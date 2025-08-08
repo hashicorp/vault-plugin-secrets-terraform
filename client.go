@@ -46,73 +46,73 @@ func newClient(config *tfConfig) (*client, error) {
 
 // RotateRootToken rotates the root token by creating a new token based on the
 // token type and ID configured in the tfConfig.
-func (c *client) RotateRootToken(ctx context.Context, tokenType, id, oldToken, currentToken string) (string, error) {
-	if tokenType == "" || id == "" {
-		return "", errors.New("token_type and id must be specified for token rotation")
+func (c *client) RotateRootToken(ctx context.Context, tokenType, OldID, oldToken string) (string, string, error) {
+	if tokenType == "" || OldID == "" {
+		return "", "", errors.New("token_type and id must be specified for token rotation")
 	}
 
 	var newToken string
+	var newID string
 	var err error
 
 	switch tokenType {
 	case "organization":
-		newToken, err = c.rotateOrganizationToken(ctx, id)
+		newToken, newID, err = c.rotateOrganizationToken(ctx, OldID)
 	case "team":
-		newToken, err = c.rotateTeamToken(ctx, id)
+		newToken, newID, err = c.rotateTeamToken(ctx, OldID)
 	case "user":
-		newToken, err = c.rotateUserToken(ctx, id)
+		newToken, newID, err = c.rotateUserToken(ctx, OldID)
 	default:
-		return "", fmt.Errorf("unsupported token_type: %s", tokenType)
+		return "", "", fmt.Errorf("unsupported token_type: %s", tokenType)
 	}
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if oldToken == "delete" && (tokenType == "team" || tokenType == "user") {
-		if err := c.deleteToken(ctx, currentToken, tokenType); err != nil {
-			return "", fmt.Errorf("failed to delete old token: %w", err)
+		if err := c.deleteToken(ctx, OldID, tokenType); err != nil {
+			return "", "", fmt.Errorf("failed to delete old token: %w", err)
 		}
 	}
 
-	return newToken, nil
+	return newToken, newID, nil
 }
 
-func (c *client) deleteToken(ctx context.Context, token, tokenType string) error {
-	// Organization tokens are handled differently, so we only need to handle team and user tokens here
+func (c *client) deleteToken(ctx context.Context, id, tokenType string) error {
 	if tokenType == "team" {
-		return c.TeamTokens.Delete(ctx, token)
+		return c.TeamTokens.DeleteByID(ctx, id)
 	} else if tokenType == "user" {
-		return c.UserTokens.Delete(ctx, token)
+		return c.UserTokens.Delete(ctx, id)
 	}
 	return nil
 }
 
-func (c *client) rotateOrganizationToken(ctx context.Context, orgName string) (string, error) {
-	// Generate a new organization token
+func (c *client) rotateOrganizationToken(ctx context.Context, orgName string) (string, string, error) {
 	newToken, err := c.OrganizationTokens.Create(ctx, orgName)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate new organization token: %w", err)
+		return "", "", fmt.Errorf("failed to generate new organization token: %w", err)
 	}
-	return newToken.Token, nil
+	return newToken.Token, newToken.ID, nil
 }
 
-func (c *client) rotateTeamToken(ctx context.Context, teamID string) (string, error) {
-	// Generate a new team token
-	newToken, err := c.TeamTokens.Create(ctx, teamID)
+func (c *client) rotateTeamToken(ctx context.Context, teamID string) (string, string, error) {
+	desc := "Rotated by Vault"
+	newToken, err := c.TeamTokens.CreateWithOptions(ctx, teamID, tfe.TeamTokenCreateOptions{
+		Description: &desc,
+	})
 	if err != nil {
-		return "", fmt.Errorf("failed to generate new team token: %w", err)
+		return "", "", fmt.Errorf("failed to generate new team token: %w", err)
 	}
-	return newToken.Token, nil
+	return newToken.Token, newToken.ID, nil
 }
 
-func (c *client) rotateUserToken(ctx context.Context, userID string) (string, error) {
-	// Create a new user token
+func (c *client) rotateUserToken(ctx context.Context, userID string) (string, string, error) {
 	newToken, err := c.UserTokens.Create(ctx, userID, tfe.UserTokenCreateOptions{
 		Description: "Rotated by Vault",
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to create new user token: %w", err)
+		return "", "", fmt.Errorf("failed to create new user token: %w", err)
 	}
-	return newToken.Token, nil
+	return newToken.Token, newToken.ID, nil
 }

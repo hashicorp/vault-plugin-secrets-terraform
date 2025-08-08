@@ -130,13 +130,13 @@ func (b *tfBackend) rotateRoot(ctx context.Context, req *logical.Request) (*logi
 		return nil, fmt.Errorf("error getting client: %w", err)
 	}
 
-	currentToken := config.Token
-	token, err := client.RotateRootToken(ctx, config.TokenType, config.ID, config.OldToken, currentToken)
+	token, newID, err := client.RotateRootToken(ctx, config.TokenType, config.ID, config.OldToken)
 	if err != nil {
 		return nil, fmt.Errorf("error rotating root token: %w", err)
 	}
 
 	config.Token = token
+	config.ID = newID
 
 	entry, err := logical.StorageEntryJSON(configStoragePath, config)
 	if err != nil {
