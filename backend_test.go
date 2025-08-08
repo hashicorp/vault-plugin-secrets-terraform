@@ -21,8 +21,8 @@ const (
 	envVarTerraformUserID       = "TF_USER_ID"
 	envVarTerraformAddress      = "TF_ADDRESS"
 	// Rotation environment variables
-	envVarTerraformTokenType    = "TF_TOKEN_TYPE"
-	envVarTerraformID           = "TF_ID"
+	envVarTerraformTokenType = "TF_TOKEN_TYPE"
+	envVarTerraformID        = "TF_ID"
 )
 
 func getTestBackend(tb testing.TB) (*tfBackend, logical.Storage) {
