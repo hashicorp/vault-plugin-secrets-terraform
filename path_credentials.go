@@ -76,10 +76,7 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 	// This temporary setting does not persist to the role definition
 	if roleEntry.CredentialType == "" && roleEntry.UserID != "" {
 		b.Logger().Info("role's credential type not set in storage, inferring type \"user\".", "role", roleName)
-
-		if roleEntry.UserID != "" {
-			roleEntry.CredentialType = userCredentialType
-		}
+		roleEntry.CredentialType = userCredentialType
 	}
 
 	if roleEntry.CredentialType == userCredentialType || roleEntry.CredentialType == teamCredentialType {
