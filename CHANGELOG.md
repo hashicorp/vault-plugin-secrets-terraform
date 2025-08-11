@@ -1,3 +1,8 @@
+## Unreleased
+
+BUG:
+* Fixed a bug when a user roles that existed prior to 0.12 cannot create credentials after updating: https://github.com/hashicorp/vault-plugin-secrets-terraform/pull/95
+
 ## 0.12.0
 ### Jun 6, 2025
 IMPROVEMENTS:
