@@ -72,6 +72,13 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 		return nil, errors.New("error retrieving role: role is nil")
 	}
 
+	// If a user role was configured prior to 1.20, credentialType may not be set.
+	// This temporary setting does not persist to the role definition
+	if roleEntry.CredentialType == "" && roleEntry.UserID != "" {
+		b.Logger().Info("role's credential type not set in storage, inferring type \"user\".", "role", roleName)
+		roleEntry.CredentialType = userCredentialType
+	}
+
 	if roleEntry.CredentialType == userCredentialType || roleEntry.CredentialType == teamCredentialType {
 		return b.createUserOrMultiTeamCreds(ctx, req, roleEntry)
 	}
