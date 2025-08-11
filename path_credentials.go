@@ -75,7 +75,7 @@ func (b *tfBackend) pathCredentialsRead(ctx context.Context, req *logical.Reques
 	// If a user role was configured prior to 1.20, credentialType may not be set.
 	// This temporary setting does not persist to the role definition
 	if roleEntry.CredentialType == "" && roleEntry.UserID != "" {
-		b.Logger().Info("Credential Type not set in storage, inferring type \"user\".")
+		b.Logger().Info("role's credential type not set in storage, inferring type \"user\".", "role", roleName)
 
 		if roleEntry.UserID != "" {
 			roleEntry.CredentialType = userCredentialType
