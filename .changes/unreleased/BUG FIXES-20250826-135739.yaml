@@ -1,0 +1,5 @@
+kind: BUG FIXES
+body: Fixed a bug when a user roles that existed prior to 0.12 cannot create credentials after updating
+time: 2025-08-26T13:57:39.244346-07:00
+custom:
+    Issue: "95"
