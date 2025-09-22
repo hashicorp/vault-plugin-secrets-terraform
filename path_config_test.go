@@ -170,7 +170,7 @@ func TestConfig_Rotation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("Test Token Rotation", func(t *testing.T) {
+	t.Run("Test Root Token Rotation", func(t *testing.T) {
 		// Create a config with rotation parameters
 		configData := map[string]interface{}{
 			"token":      token,
@@ -182,7 +182,7 @@ func TestConfig_Rotation(t *testing.T) {
 		err := testConfigCreate(t, b, config.StorageView, configData)
 		require.NoError(t, err)
 
-		err = b.RotateCredential(context.Background(), &logical.Request{
+		err = b.rotateRootToken(context.Background(), &logical.Request{
 			Storage: config.StorageView,
 		})
 		require.NoError(t, err)
