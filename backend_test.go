@@ -22,6 +22,7 @@ const (
 	envVarTerraformAddress      = "TF_ADDRESS"
 	// Rotation environment variables
 	envVarTerraformTokenType = "TF_TOKEN_TYPE"
+	envVarTerraformTokenID   = "TF_TOKEN_ID"
 	envVarTerraformID        = "TF_ID"
 )
 
