@@ -273,19 +273,15 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 
 	// If rotation is enabled and the rotate_token_immediately flag is true,
 	// rotate the token immediately.
-	// if config.ShouldRegisterRotationJob() && data.Get("rotate_token_immediately").(bool) {
-	// 	newToken, newID, err := rotateOnWrite(ctx, *config)
-	// 	if err != nil {
-	// 		b.Logger().Error("error immediately rotating token when writing backend configuration. rotation manager stil succeeded", "error", err)
-	// 		return nil, err
-	// 	}
-	// 	config.Token, config.ID = newToken, newID
+	if config.ShouldRegisterRotationJob() && data.Get("rotate_token_immediately").(bool) {
+		b.Logger().Debug("Immediately rotating configuration token on write")
+		err = b.rotateRootToken(ctx, req)
 
-	// 	if err := putConfigToStorage(ctx, req, config); err != nil {
-	// 		b.Logger().Error("error immediately rotating token when writing backend configuration. rotation manager still succeeded", "error", err)
-	// 		return nil, fmt.Errorf("error writing updated config after immediate rotation: %w", err)
-	// 	}
-	// }
+		if err != nil {
+			b.Logger().Error("error immediately rotating token when writing backend configuration. initial rotation manager setup succeeded", "error", err)
+			return nil, err
+		}
+	}
 
 	// reset the client so the next invocation will pick up the new configuration
 	b.reset()
@@ -335,18 +331,6 @@ func getConfig(ctx context.Context, s logical.Storage) (*tfConfig, error) {
 	return config, nil
 }
 
-// func (b *tfBackend) rotateOnWrite(ctx context.Context, config tfConfig) (string, string, error) {
-// 	b.Logger().Debug("Immediately rotating configuration token on write")
-// 	// client, err := newClient(&config)
-// 	// if err != nil {
-// 	// 	return "", "", err
-// 	// }
-// 	req := &logical.Request{
-// 		Storage: b.System().Storage(),
-// 	}
-// 	return b.rotateRootToken(ctx, req)
-// }
-
 const pathConfigHelpSynopsis = `Configure the Terraform Cloud / Enterprise backend.`
 
 const pathConfigHelpDescription = `
@@ -371,7 +355,8 @@ Example with rotation:
 vault write terraform/config \
   token="your-token" \
   token_type="team" \
-  id="at-123" \
+  token_id="at-123" \
+  id="team-123" \
   old_token="delete" \
   rotation_period="24h"
 `
