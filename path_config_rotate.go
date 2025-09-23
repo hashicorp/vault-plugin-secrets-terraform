@@ -164,8 +164,6 @@ set to "team" or "user", the old token will be deleted after a successful rotati
 
 Automatic rotation can be configured by setting the rotation_period field in the
 configuration. If rotation is configured, the token will be rotated automatically
-after the specified period has elapsed. The rotate_token_immediately field can be
-set to true to rotate the token immediately after writing the configuration, 
-preventing the human provided token from living a full rotation period. Automatic
-rotation is only supported for Vault.
+after the specified period has elapsed. Automatic rotation is only supported for 
+Vault Enterprise.
 `
