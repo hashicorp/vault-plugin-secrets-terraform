@@ -36,8 +36,8 @@ func pathConfigRotate(b *tfBackend) []*framework.Path {
 				},
 			},
 
-			// HelpSynopsis:    pathRotateRoleHelpSyn,
-			// HelpDescription: pathRotateRoleHelpDesc,
+			HelpSynopsis:    pathRotateConfigHelpSyn,
+			HelpDescription: pathRotateConfigHelpDesc,
 		},
 	}
 }
@@ -152,11 +152,20 @@ func generateRandomDescriptionString(description string) string {
 	return fmt.Sprintf("%s (%s)", description, string(result))
 }
 
-// const pathRotateRoleHelpSyn = `
-// Request to rotate the credentials for a team or organization.
-// `
+const pathRotateConfigHelpSyn = `
+Request to rotate the root token for a user, team, or organization.
+`
 
-// const pathRotateRoleHelpDesc = `
-// This path attempts to rotate the credentials for the given team or organization role.
-// This endpoint returns an error if attempting to rotate a user role.
-// `
+const pathRotateConfigHelpDesc = `
+This path attempts to rotate the root token of the secret engine configuration.
+Rotation requires that the token_type, id, and token_id fields are set in the
+configuration. If the old_token field is set to "delete" and the token_type is
+set to "team" or "user", the old token will be deleted after a successful rotation.
+
+Automatic rotation can be configured by setting the rotation_period field in the
+configuration. If rotation is configured, the token will be rotated automatically
+after the specified period has elapsed. The rotate_token_immediately field can be
+set to true to rotate the token immediately after writing the configuration, 
+preventing the human provided token from living a full rotation period. Automatic
+rotation is only supported for Vault.
+`

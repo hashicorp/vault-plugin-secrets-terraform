@@ -331,22 +331,26 @@ func getConfig(ctx context.Context, s logical.Storage) (*tfConfig, error) {
 	return config, nil
 }
 
-const pathConfigHelpSynopsis = `Configure the Terraform Cloud / Enterprise backend.`
+const pathConfigHelpSynopsis = `Configure the root credentials that are used to 
+generate HCP Terraform / Terraform Enterprise tokens.`
 
 const pathConfigHelpDescription = `
-The Terraform Cloud / Enterprise secret backend requires credentials for managing
-organization and team tokens for Terraform Cloud or Enterprise. This endpoint
-is used to configure those credentials and the default values for the backend in general.
-
-You must specify a Terraform Cloud or Enterprise token with organization access
-to allow Vault to create tokens.
+The  HCP Terraform / Terraform Enterprise secret backend requires credentials for
+generating dynamic user, team, or organization tokens. This endpoint is used to 
+configure those credentials and the default values for the backend in general. 
+The credential must have access to create tokens for the organization or teams 
+you wish Vault to manage.
 
 If you are running Terraform Enterprise, you can specify the address and base path
 for your instance and API endpoint.
 
+Root credentials can be rotated if the token_type, id, and token_id fields are 
+set in the configuration.
+
 Automatic token rotation (requires Vault Enterprise):
 For automatic token rotation, specify:
 - token_type: The type of token (organization, team, user)
+- token_id: The ID of the token to rotate
 - id: The ID of the organization, team, or user associated with the token
 - old_token: How to handle the old token ("delete" or "keep", defaults to "delete")
 - rotation_period or rotation_schedule: When to rotate the token
