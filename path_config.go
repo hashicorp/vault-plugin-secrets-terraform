@@ -9,7 +9,9 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/automatedrotationutil"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/sdk/rotation"
 )
 
 const (
@@ -17,13 +19,19 @@ const (
 )
 
 type tfConfig struct {
-	Token    string `json:"token"`
-	Address  string `json:"address"`
-	BasePath string `json:"base_path"`
+	automatedrotationutil.AutomatedRotationParams
+
+	Token     string `json:"token"`
+	TokenType string `json:"token_type,omitempty"`
+	TokenID   string `json:"token_id,omitempty"`
+	ID        string `json:"id,omitempty"`
+	OldToken  string `json:"old_token,omitempty"`
+	Address   string `json:"address"`
+	BasePath  string `json:"base_path"`
 }
 
 func pathConfig(b *tfBackend) *framework.Path {
-	return &framework.Path{
+	p := &framework.Path{
 		Pattern: "config",
 		DisplayAttrs: &framework.DisplayAttributes{
 			OperationPrefix: operationPrefixTerraformCloud,
@@ -37,6 +45,23 @@ func pathConfig(b *tfBackend) *framework.Path {
 					Name:      "Token",
 					Sensitive: true,
 				},
+			},
+			"token_type": {
+				Type:        framework.TypeString,
+				Description: "The type of token (organization, team, user). Required for rotation.",
+			},
+			"id": {
+				Type:        framework.TypeString,
+				Description: "The ID of the entity the token belongs to (organization name, team id, or user id). Required for rotation when old_token=\"delete\".",
+			},
+			"token_id": {
+				Type:        framework.TypeString,
+				Description: "The ID of the token. Required for rotation. Token IDs begin with `at-<>`.",
+			},
+			"old_token": {
+				Type:        framework.TypeString,
+				Description: "The behavior for handling the old token when rotating. Can be 'delete' or 'keep'. Defaults to 'delete'.",
+				Default:     "delete",
 			},
 			"address": {
 				Type: framework.TypeString,
@@ -81,6 +106,11 @@ func pathConfig(b *tfBackend) *framework.Path {
 		HelpSynopsis:    pathConfigHelpSynopsis,
 		HelpDescription: pathConfigHelpDescription,
 	}
+
+	// Add automated rotation fields
+	automatedrotationutil.AddAutomatedRotationFields(p.Fields)
+
+	return p
 }
 
 func (b *tfBackend) pathConfigExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
@@ -98,11 +128,23 @@ func (b *tfBackend) pathConfigRead(ctx context.Context, req *logical.Request, da
 		return nil, err
 	}
 
+	if config == nil {
+		return nil, nil
+	}
+
+	configData := map[string]interface{}{
+		"address":   config.Address,
+		"base_path": config.BasePath,
+	}
+
+	config.PopulateAutomatedRotationData(configData)
+	configData["token_type"] = config.TokenType
+	configData["token_id"] = config.TokenID
+	configData["id"] = config.ID
+	configData["old_token"] = config.OldToken
+
 	return &logical.Response{
-		Data: map[string]interface{}{
-			"address":   config.Address,
-			"base_path": config.BasePath,
-		},
+		Data: configData,
 	}, nil
 }
 
@@ -119,24 +161,109 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		config = new(tfConfig)
 	}
 
-	address := data.Get("address").(string)
-	basePath := data.Get("base_path").(string)
+	if address, ok := data.GetOk("address"); ok {
+		config.Address = address.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.Address = data.Get("address").(string)
+	}
 
-	config.Address = address
-	config.BasePath = basePath
+	if basePath, ok := data.GetOk("base_path"); ok {
+		config.BasePath = basePath.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.BasePath = data.Get("base_path").(string)
+	}
 
-	token, ok := data.GetOk("token")
-	if ok {
+	if token, ok := data.GetOk("token"); ok {
 		config.Token = token.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.Token = data.Get("token").(string)
 	}
 
-	entry, err := logical.StorageEntryJSON(configStoragePath, config)
-	if err != nil {
-		return nil, err
+	// it should be possible to determine token type from the token itself
+	// but the go-tfe library does not currently support this: https://github.com/hashicorp/go-tfe/blob/main/user.go#L47
+	// so for now we will require the user to specify it
+	if tokenType, ok := data.GetOk("token_type"); ok {
+		config.TokenType = tokenType.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.TokenType = data.Get("token_type").(string)
 	}
 
-	if err := req.Storage.Put(ctx, entry); err != nil {
-		return nil, err
+	if tokenID, ok := data.GetOk("token_id"); ok {
+		config.TokenID = tokenID.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.TokenID = data.Get("token_id").(string)
+	}
+
+	if id, ok := data.GetOk("id"); ok {
+		config.ID = id.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.ID = data.Get("id").(string)
+	}
+
+	// Validate token_type and id fields for rotation
+	if config.TokenType != "" {
+		if config.TokenType != "organization" && config.TokenType != "team" && config.TokenType != "user" {
+			return logical.ErrorResponse("invalid token_type: must be 'organization', 'team', or 'user'"), nil
+		}
+		if config.ID == "" {
+			return logical.ErrorResponse("id is required when token_type is specified"), nil
+		}
+	}
+
+	if oldToken, ok := data.GetOk("old_token"); ok {
+		config.OldToken = oldToken.(string)
+		if config.OldToken != "delete" && config.OldToken != "keep" {
+			return logical.ErrorResponse("invalid old_token: must be 'delete' or 'keep'"), nil
+		}
+	} else if req.Operation == logical.CreateOperation {
+		config.OldToken = data.Get("old_token").(string)
+	}
+
+	// Parse automated rotation fields
+	if err := config.ParseAutomatedRotationFields(data); err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	var performedRotationManagerOperation string
+	if config.ShouldDeregisterRotationJob() {
+		performedRotationManagerOperation = rotation.PerformedDeregistration
+		// Disable Automated Rotation and Deregister credentials if required
+		deregisterReq := &rotation.RotationJobDeregisterRequest{
+			MountPoint: req.MountPoint,
+			ReqPath:    req.Path,
+		}
+
+		b.Logger().Debug("Deregistering rotation job", "mount", req.MountPoint+req.Path)
+		if err := b.System().DeregisterRotationJob(ctx, deregisterReq); err != nil {
+			return logical.ErrorResponse("error deregistering rotation job: %s", err), nil
+		}
+	} else if config.ShouldRegisterRotationJob() {
+		performedRotationManagerOperation = rotation.PerformedRegistration
+		// Register the rotation job if it's required.
+		cfgReq := &rotation.RotationJobConfigureRequest{
+			MountPoint:       req.MountPoint,
+			ReqPath:          req.Path,
+			RotationSchedule: config.RotationSchedule,
+			RotationWindow:   config.RotationWindow,
+			RotationPeriod:   config.RotationPeriod,
+		}
+
+		b.Logger().Debug("Registering rotation job", "mount", req.MountPoint+req.Path)
+		if _, err = b.System().RegisterRotationJob(ctx, cfgReq); err != nil {
+			return logical.ErrorResponse("error registering rotation job: %s", err), nil
+		}
+	}
+
+	// Save the config
+	if err := putConfigToStorage(ctx, req, config); err != nil {
+		wrappedError := err
+		if performedRotationManagerOperation != "" {
+			b.Logger().Error("write to storage failed but the rotation manager still succeeded.",
+				"operation", performedRotationManagerOperation, "mount", req.MountPoint, "path", req.Path)
+			wrappedError = fmt.Errorf("write to storage failed but the rotation manager still succeeded; "+
+				"operation=%s, mount=%s, path=%s, storageError=%s", performedRotationManagerOperation, req.MountPoint, req.Path, err)
+		}
+		return nil, wrappedError
 	}
 
 	// reset the client so the next invocation will pick up the new configuration
@@ -153,6 +280,19 @@ func (b *tfBackend) pathConfigDelete(ctx context.Context, req *logical.Request, 
 	}
 
 	return nil, err
+}
+
+func putConfigToStorage(ctx context.Context, req *logical.Request, config *tfConfig) error {
+	entry, err := logical.StorageEntryJSON(configStoragePath, config)
+	if err != nil {
+		return err
+	}
+
+	if err := req.Storage.Put(ctx, entry); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getConfig(ctx context.Context, s logical.Storage) (*tfConfig, error) {
@@ -174,16 +314,36 @@ func getConfig(ctx context.Context, s logical.Storage) (*tfConfig, error) {
 	return config, nil
 }
 
-const pathConfigHelpSynopsis = `Configure the Terraform Cloud / Enterprise backend.`
+const pathConfigHelpSynopsis = `Configure the root credentials that are used to 
+generate HCP Terraform / Terraform Enterprise tokens.`
 
 const pathConfigHelpDescription = `
-The Terraform Cloud / Enterprise secret backend requires credentials for managing
-organization and team tokens for Terraform Cloud or Enterprise. This endpoint
-is used to configure those credentials and the default values for the backend in general.
-
-You must specify a Terraform Cloud or Enterprise token with organization access
-to allow Vault to create tokens.
+The  HCP Terraform / Terraform Enterprise secret backend requires credentials for
+generating dynamic user, team, or organization tokens. This endpoint is used to 
+configure those credentials and the default values for the backend in general. 
+The credential must have access to create tokens for the organization or teams 
+you wish Vault to manage.
 
 If you are running Terraform Enterprise, you can specify the address and base path
 for your instance and API endpoint.
+
+Root credentials can be rotated if the token_type, id, and token_id fields are 
+set in the configuration.
+
+Automatic token rotation (requires Vault Enterprise):
+For automatic token rotation, specify:
+- token_type: The type of token (organization, team, user)
+- token_id: The ID of the token to rotate
+- id: The ID of the organization, team, or user associated with the token
+- old_token: How to handle the old token ("delete" or "keep", defaults to "delete")
+- rotation_period or rotation_schedule: When to rotate the token
+
+Example with rotation:
+vault write terraform/config \
+  token="your-token" \
+  token_type="team" \
+  token_id="at-123" \
+  id="team-123" \
+  old_token="delete" \
+  rotation_period="24h"
 `

@@ -20,6 +20,10 @@ const (
 	envVarTerraformTeamID       = "TF_TEAM_ID"
 	envVarTerraformUserID       = "TF_USER_ID"
 	envVarTerraformAddress      = "TF_ADDRESS"
+	// Rotation environment variables
+	envVarTerraformTokenType = "TF_TOKEN_TYPE"
+	envVarTerraformTokenID   = "TF_TOKEN_ID"
+	envVarTerraformID        = "TF_ID"
 )
 
 func getTestBackend(tb testing.TB) (*tfBackend, logical.Storage) {
@@ -59,13 +63,23 @@ type testEnv struct {
 }
 
 func (e *testEnv) AddConfig(t *testing.T) {
+	data := map[string]interface{}{
+		"token": e.Token,
+	}
+
+	// Add rotation parameters if environment variables are set
+	if tokenType := os.Getenv(envVarTerraformTokenType); tokenType != "" {
+		data["token_type"] = tokenType
+	}
+	if id := os.Getenv(envVarTerraformID); id != "" {
+		data["id"] = id
+	}
+
 	req := &logical.Request{
 		Operation: logical.CreateOperation,
 		Path:      "config",
 		Storage:   e.Storage,
-		Data: map[string]interface{}{
-			"token": e.Token,
-		},
+		Data:      data,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
 	require.Nil(t, resp)
@@ -119,8 +133,8 @@ func (e *testEnv) AddTeamLegacyTokenRole(t *testing.T) {
 		Path:      "role/test-team-token",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"organization": e.Organization,
-			"team_id":      e.TeamID,
+			"team_id":         e.TeamID,
+			"credential_type": teamLegacyCredentialType,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)

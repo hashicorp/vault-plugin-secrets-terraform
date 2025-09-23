@@ -51,12 +51,16 @@ func backend() *tfBackend {
 				pathCredentials(&b),
 			},
 			pathRotateRole(&b),
+			pathConfigRotate(&b),
 		),
 		Secrets: []*framework.Secret{
 			b.terraformToken(),
 		},
 		BackendType: logical.TypeLogical,
 		Invalidate:  b.invalidate,
+		RotateCredential: func(ctx context.Context, req *logical.Request) error {
+			return b.rotateRootToken(ctx, req)
+		},
 	}
 
 	return &b

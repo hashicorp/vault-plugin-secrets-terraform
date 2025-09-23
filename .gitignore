@@ -6,3 +6,6 @@ bin
 tmp
 .idea
 .vscode
+.DS_Store
+config.json
+.bin
