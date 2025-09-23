@@ -46,11 +46,6 @@ func pathConfig(b *tfBackend) *framework.Path {
 					Sensitive: true,
 				},
 			},
-			"rotate_token_immediately": {
-				Type:        framework.TypeBool,
-				Description: "If true and rotation is setup, will immediately rotate the token provided to configuration. Only takes effect when writing the config.",
-				Default:     true,
-			},
 			"token_type": {
 				Type:        framework.TypeString,
 				Description: "The type of token (organization, team, user). Required for rotation.",
@@ -269,18 +264,6 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 				"operation=%s, mount=%s, path=%s, storageError=%s", performedRotationManagerOperation, req.MountPoint, req.Path, err)
 		}
 		return nil, wrappedError
-	}
-
-	// If rotation is enabled and the rotate_token_immediately flag is true,
-	// rotate the token immediately.
-	if config.ShouldRegisterRotationJob() && data.Get("rotate_token_immediately").(bool) {
-		b.Logger().Debug("Immediately rotating configuration token on write")
-		err = b.rotateRootToken(ctx, req)
-
-		if err != nil {
-			b.Logger().Error("error immediately rotating token when writing backend configuration. initial rotation manager setup succeeded", "error", err)
-			return nil, err
-		}
 	}
 
 	// reset the client so the next invocation will pick up the new configuration
