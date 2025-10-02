@@ -1,7 +1,7 @@
 ## v0.13.0
 ### October 2, 2025
 
-* update deps and go version (#100)
+* Bump go version to 1.25.1 (#100)
 * Automated dependency upgrades (#82)
 * [COMPLIANCE] Add Copyright and License Headers (#99)
 * init changie (#98)
