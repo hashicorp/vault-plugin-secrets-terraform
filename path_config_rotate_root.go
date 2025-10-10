@@ -18,7 +18,7 @@ import (
 func pathConfigRotate(b *tfBackend) []*framework.Path {
 	return []*framework.Path{
 		{
-			Pattern: "config/rotate",
+			Pattern: "config/rotate-root",
 
 			DisplayAttrs: &framework.DisplayAttributes{
 				OperationPrefix: operationPrefixTerraformCloud,
