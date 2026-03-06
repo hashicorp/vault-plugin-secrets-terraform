@@ -91,18 +91,26 @@ func (b *tfBackend) rotateRootToken(ctx context.Context, req *logical.Request) e
 
 	config.Token, config.TokenID = newToken, newID
 	if err := putConfigToStorage(ctx, req, config); err != nil {
-		b.Logger().Error("error saving new config after rotation: %v", err)
+		b.Logger().Error("error saving new config after rotation", "error", err)
 		return fmt.Errorf("error saving new config after rotation: %w", err)
 	}
 
+	// Reset the cached client so the next getClient call uses the new token.
+	b.reset()
+
+	// Delete the old token using a fresh client authenticated with the new token.
+	// This is best-effort: the new token is already persisted and canonical, so
+	// a failure here should not fail the overall rotation.
 	if config.OldToken == "delete" && (config.TokenType == "team" || config.TokenType == "user") {
-		if err := b.deleteToken(ctx, client, oldTokenID, config.TokenType); err != nil {
-			return fmt.Errorf("failed to delete old token: %w", err)
+		freshClient, err := b.getClient(ctx, req.Storage)
+		if err != nil {
+			b.Logger().Warn("failed to create client for old token cleanup", "error", err)
+			return nil
+		}
+		if err := b.deleteToken(ctx, freshClient, oldTokenID, config.TokenType); err != nil {
+			b.Logger().Warn("failed to delete old token after rotation", "old_token_id", oldTokenID, "error", err)
 		}
 	}
-
-	// reset the client so the next invocation will pick up the new configuration
-	b.reset()
 
 	return nil
 }
