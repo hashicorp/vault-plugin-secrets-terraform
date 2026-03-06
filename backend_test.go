@@ -21,9 +21,7 @@ const (
 	envVarTerraformUserID       = "TF_USER_ID"
 	envVarTerraformAddress      = "TF_ADDRESS"
 	// Rotation environment variables
-	envVarTerraformTokenType = "TF_TOKEN_TYPE"
-	envVarTerraformTokenID   = "TF_TOKEN_ID"
-	envVarTerraformID        = "TF_ID"
+	envVarTerraformTokenID = "TF_TOKEN_ID"
 )
 
 func getTestBackend(tb testing.TB) (*tfBackend, logical.Storage) {
@@ -32,14 +30,20 @@ func getTestBackend(tb testing.TB) (*tfBackend, logical.Storage) {
 	config := logical.TestBackendConfig()
 	config.StorageView = new(logical.InmemStorage)
 	config.Logger = hclog.NewNullLogger()
-	config.System = logical.TestSystemView()
+	config.System = &testSystemView{}
 
 	b, err := Factory(context.Background(), config)
 	if err != nil {
 		tb.Fatal(err)
 	}
 
-	return b.(*tfBackend), config.StorageView
+	tfb := b.(*tfBackend)
+	// Use a no-op resolver for unit tests (no real TFC API available)
+	tfb.resolveTokenIdentityFunc = func(ctx context.Context, address, basePath, token string) (string, string, error) {
+		return "", "", nil
+	}
+
+	return tfb, config.StorageView
 }
 
 var runAcceptanceTests = os.Getenv(envVarRunAccTests) == "1"
@@ -65,14 +69,6 @@ type testEnv struct {
 func (e *testEnv) AddConfig(t *testing.T) {
 	data := map[string]interface{}{
 		"token": e.Token,
-	}
-
-	// Add rotation parameters if environment variables are set
-	if tokenType := os.Getenv(envVarTerraformTokenType); tokenType != "" {
-		data["token_type"] = tokenType
-	}
-	if id := os.Getenv(envVarTerraformID); id != "" {
-		data["id"] = id
 	}
 
 	req := &logical.Request{

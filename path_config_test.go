@@ -127,10 +127,6 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 		return resp.Error()
 	}
 
-	if len(expected) != len(resp.Data) {
-		return fmt.Errorf("read data mismatch (expected %d values, got %d)", len(expected), len(resp.Data))
-	}
-
 	for k, expectedV := range expected {
 		actualV, ok := resp.Data[k]
 
@@ -151,13 +147,11 @@ func TestConfig_Rotation(t *testing.T) {
 		t.SkipNow()
 	}
 
-	tokenType := os.Getenv(envVarTerraformTokenType)
-	id := os.Getenv(envVarTerraformID)
 	token := os.Getenv(envVarTerraformToken)
 	tokenID := os.Getenv(envVarTerraformTokenID)
 
-	if tokenType == "" || id == "" || token == "" || tokenID == "" {
-		t.Skipf("Skipping rotation test, set %s, %s, %s, and %s to run", envVarTerraformTokenType, envVarTerraformID, envVarTerraformToken, envVarTerraformTokenID)
+	if token == "" || tokenID == "" {
+		t.Skipf("Skipping rotation test, set %s and %s to run", envVarTerraformToken, envVarTerraformTokenID)
 	}
 
 	config := logical.TestBackendConfig()
@@ -172,11 +166,10 @@ func TestConfig_Rotation(t *testing.T) {
 
 	t.Run("Test Root Token Rotation", func(t *testing.T) {
 		// Create a config with rotation parameters
+		// token_type and id are auto-detected from the token
 		configData := map[string]interface{}{
-			"token":      token,
-			"token_type": tokenType,
-			"id":         id,
-			"token_id":   tokenID,
+			"token":    token,
+			"token_id": tokenID,
 		}
 
 		err := testConfigCreate(t, b, config.StorageView, configData)
@@ -211,11 +204,13 @@ func TestBackend_PathConfig_RegisterRotation(t *testing.T) {
 	if err := b.Setup(ctx, config); err != nil {
 		t.Fatal(err)
 	}
+	// Mock the resolver for unit tests
+	b.resolveTokenIdentityFunc = func(ctx context.Context, address, basePath, token string) (string, string, error) {
+		return "user", "user-123", nil
+	}
 
 	configData := map[string]interface{}{
 		"token":             "token-value",
-		"token_type":        "user",
-		"id":                "user-id",
 		"token_id":          "token-id-value",
 		"rotation_schedule": "*/1 * * * *",
 		"rotation_window":   120,

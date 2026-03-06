@@ -56,9 +56,19 @@ func (b *tfBackend) rotateRootToken(ctx context.Context, req *logical.Request) e
 
 	}
 
+	// Resolve token type and ID if not already set (e.g., legacy config)
+	if config.TokenType == "" || config.ID == "" {
+		tokenType, id, err := b.resolveTokenIdentityFunc(ctx, config.Address, config.BasePath, config.Token)
+		if err != nil {
+			return fmt.Errorf("failed to auto-detect token identity: %w", err)
+		}
+		config.TokenType = tokenType
+		config.ID = id
+	}
+
 	oldTokenID := config.TokenID
-	if config.TokenType == "" || config.ID == "" || oldTokenID == "" {
-		return errors.New("token_type, token_id, and id must be specified for token rotation")
+	if oldTokenID == "" {
+		return errors.New("token_id must be specified for token rotation")
 	}
 
 	var newToken string
@@ -158,9 +168,10 @@ Request to rotate the root token for a user, team, or organization.
 
 const pathRotateConfigHelpDesc = `
 This path attempts to rotate the root token of the secret engine configuration.
-Rotation requires that the token_type, id, and token_id fields are set in the
-configuration. If the old_token field is set to "delete" and the token_type is
-set to "team" or "user", the old token will be deleted after a successful rotation.
+The token type and entity ID are automatically detected from the token via the
+account/details API. Rotation requires that the token_id field is set in the
+configuration. If the old_token field is set to "delete" and the token type is
+"team" or "user", the old token will be deleted after a successful rotation.
 
 Automatic rotation can be configured by setting the rotation_period field in the
 configuration. If rotation is configured, the token will be rotated automatically

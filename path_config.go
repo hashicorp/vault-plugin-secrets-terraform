@@ -46,14 +46,6 @@ func pathConfig(b *tfBackend) *framework.Path {
 					Sensitive: true,
 				},
 			},
-			"token_type": {
-				Type:        framework.TypeString,
-				Description: "The type of token (organization, team, user). Required for rotation.",
-			},
-			"id": {
-				Type:        framework.TypeString,
-				Description: "The ID of the entity the token belongs to (organization name, team id, or user id). Required for rotation when old_token=\"delete\".",
-			},
 			"token_id": {
 				Type:        framework.TypeString,
 				Description: "The ID of the token. Required for rotation. Token IDs begin with `at-<>`.",
@@ -173,41 +165,19 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		config.BasePath = data.Get("base_path").(string)
 	}
 
+	tokenChanged := false
 	if token, ok := data.GetOk("token"); ok {
 		config.Token = token.(string)
+		tokenChanged = true
 	} else if req.Operation == logical.CreateOperation {
 		config.Token = data.Get("token").(string)
-	}
-
-	// it should be possible to determine token type from the token itself
-	// but the go-tfe library does not currently support this: https://github.com/hashicorp/go-tfe/blob/main/user.go#L47
-	// so for now we will require the user to specify it
-	if tokenType, ok := data.GetOk("token_type"); ok {
-		config.TokenType = tokenType.(string)
-	} else if req.Operation == logical.CreateOperation {
-		config.TokenType = data.Get("token_type").(string)
+		tokenChanged = true
 	}
 
 	if tokenID, ok := data.GetOk("token_id"); ok {
 		config.TokenID = tokenID.(string)
 	} else if req.Operation == logical.CreateOperation {
 		config.TokenID = data.Get("token_id").(string)
-	}
-
-	if id, ok := data.GetOk("id"); ok {
-		config.ID = id.(string)
-	} else if req.Operation == logical.CreateOperation {
-		config.ID = data.Get("id").(string)
-	}
-
-	// Validate token_type and id fields for rotation
-	if config.TokenType != "" {
-		if config.TokenType != "organization" && config.TokenType != "team" && config.TokenType != "user" {
-			return logical.ErrorResponse("invalid token_type: must be 'organization', 'team', or 'user'"), nil
-		}
-		if config.ID == "" {
-			return logical.ErrorResponse("id is required when token_type is specified"), nil
-		}
 	}
 
 	if oldToken, ok := data.GetOk("old_token"); ok {
@@ -217,6 +187,16 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		}
 	} else if req.Operation == logical.CreateOperation {
 		config.OldToken = data.Get("old_token").(string)
+	}
+
+	// Auto-detect token type and ID from the TFC/TFE account/details API
+	if tokenChanged && config.Token != "" {
+		tokenType, id, err := b.resolveTokenIdentityFunc(ctx, config.Address, config.BasePath, config.Token)
+		if err != nil {
+			return logical.ErrorResponse("failed to auto-detect token identity: %s", err), nil
+		}
+		config.TokenType = tokenType
+		config.ID = id
 	}
 
 	// Parse automated rotation fields
@@ -327,23 +307,20 @@ you wish Vault to manage.
 If you are running Terraform Enterprise, you can specify the address and base path
 for your instance and API endpoint.
 
-Root credentials can be rotated if the token_type, id, and token_id fields are 
-set in the configuration.
+Root credentials can be rotated if the token_id field is set in the
+configuration. The token type and entity ID are automatically detected
+from the token via the account/details API.
 
 Automatic token rotation (requires Vault Enterprise):
 For automatic token rotation, specify:
-- token_type: The type of token (organization, team, user)
 - token_id: The ID of the token to rotate
-- id: The ID of the organization, team, or user associated with the token
 - old_token: How to handle the old token ("delete" or "keep", defaults to "delete")
 - rotation_period or rotation_schedule: When to rotate the token
 
 Example with rotation:
 vault write terraform/config \
   token="your-token" \
-  token_type="team" \
   token_id="at-123" \
-  id="team-123" \
   old_token="delete" \
   rotation_period="24h"
 `
