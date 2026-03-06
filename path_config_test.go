@@ -131,9 +131,9 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 		actualV, ok := resp.Data[k]
 
 		if !ok {
-			return fmt.Errorf(`expected data["%s"] = %v but was not included in read output\"`, k, expectedV)
+			return fmt.Errorf(`expected data["%s"] = %v but was not included in read output`, k, expectedV)
 		} else if expectedV != actualV {
-			return fmt.Errorf(`expected data["%s"] = %v, instead got %v\"`, k, expectedV, actualV)
+			return fmt.Errorf(`expected data["%s"] = %v, instead got %v`, k, expectedV, actualV)
 		}
 	}
 
@@ -180,7 +180,7 @@ func TestConfig_Rotation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// Read the config again and verify the token has changed
+		// Read the config again and verify the token and token_id have changed
 		resp, err := b.HandleRequest(context.Background(), &logical.Request{
 			Operation: logical.ReadOperation,
 			Path:      "config",
@@ -189,6 +189,10 @@ func TestConfig_Rotation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NotEqual(t, token, resp.Data["token"])
+
+		newTokenID, ok := resp.Data["token_id"]
+		require.True(t, ok, "token_id should be present in config after rotation")
+		require.NotEqual(t, tokenID, newTokenID, "token_id should change after rotation")
 	})
 }
 

@@ -46,6 +46,14 @@ func pathConfig(b *tfBackend) *framework.Path {
 					Sensitive: true,
 				},
 			},
+			"token_type": {
+				Type:        framework.TypeString,
+				Description: "The type of token (organization, team, user). Auto-detected from the token via the account/details API. Read-only.",
+			},
+			"id": {
+				Type:        framework.TypeString,
+				Description: "The ID of the entity the token belongs to (organization name, team id, or user id). Auto-detected from the token. Read-only.",
+			},
 			"token_id": {
 				Type:        framework.TypeString,
 				Description: "The ID of the token. Required for rotation. Token IDs begin with `at-<>`.",
@@ -130,10 +138,18 @@ func (b *tfBackend) pathConfigRead(ctx context.Context, req *logical.Request, da
 	}
 
 	config.PopulateAutomatedRotationData(configData)
-	configData["token_type"] = config.TokenType
-	configData["token_id"] = config.TokenID
-	configData["id"] = config.ID
-	configData["old_token"] = config.OldToken
+	if config.TokenType != "" {
+		configData["token_type"] = config.TokenType
+	}
+	if config.TokenID != "" {
+		configData["token_id"] = config.TokenID
+	}
+	if config.ID != "" {
+		configData["id"] = config.ID
+	}
+	if config.OldToken != "" {
+		configData["old_token"] = config.OldToken
+	}
 
 	return &logical.Response{
 		Data: configData,
