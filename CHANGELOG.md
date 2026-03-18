@@ -4,7 +4,7 @@
 
 IMPROVEMENTS:
 * Update dependencies(#106)
-   * go 1.25.0 => 1.26.1
+   * go 1.25.1 => 1.26.1
    * golang.org/x/time v0.12.0 => v0.14.0
    * golang.org/x/sync v0.17.0 => v0.19.0
    * github.com/hashicorp/vault/sdk v0.19.0 => v0.23.0
