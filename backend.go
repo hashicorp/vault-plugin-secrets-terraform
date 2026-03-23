@@ -26,12 +26,15 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 
 type tfBackend struct {
 	*framework.Backend
-	lock   sync.RWMutex
-	client *client
+	lock                     sync.RWMutex
+	client                   *client
+	resolveTokenIdentityFunc func(ctx context.Context, address, basePath, token string) (string, string, error)
 }
 
 func backend() *tfBackend {
-	b := tfBackend{}
+	b := tfBackend{
+		resolveTokenIdentityFunc: resolveTokenIdentity,
+	}
 
 	b.Backend = &framework.Backend{
 		Help: strings.TrimSpace(backendHelp),
@@ -51,12 +54,16 @@ func backend() *tfBackend {
 				pathCredentials(&b),
 			},
 			pathRotateRole(&b),
+			pathConfigRotate(&b),
 		),
 		Secrets: []*framework.Secret{
 			b.terraformToken(),
 		},
 		BackendType: logical.TypeLogical,
 		Invalidate:  b.invalidate,
+		RotateCredential: func(ctx context.Context, req *logical.Request) error {
+			return b.rotateRootToken(ctx, req)
+		},
 	}
 
 	return &b

@@ -20,6 +20,8 @@ const (
 	envVarTerraformTeamID       = "TF_TEAM_ID"
 	envVarTerraformUserID       = "TF_USER_ID"
 	envVarTerraformAddress      = "TF_ADDRESS"
+	// Rotation environment variables
+	envVarTerraformTokenID = "TF_TOKEN_ID"
 )
 
 func getTestBackend(tb testing.TB) (*tfBackend, logical.Storage) {
@@ -28,14 +30,20 @@ func getTestBackend(tb testing.TB) (*tfBackend, logical.Storage) {
 	config := logical.TestBackendConfig()
 	config.StorageView = new(logical.InmemStorage)
 	config.Logger = hclog.NewNullLogger()
-	config.System = logical.TestSystemView()
+	config.System = &testSystemView{}
 
 	b, err := Factory(context.Background(), config)
 	if err != nil {
 		tb.Fatal(err)
 	}
 
-	return b.(*tfBackend), config.StorageView
+	tfb := b.(*tfBackend)
+	// Use a no-op resolver for unit tests (no real TFC API available)
+	tfb.resolveTokenIdentityFunc = func(ctx context.Context, address, basePath, token string) (string, string, error) {
+		return "", "", nil
+	}
+
+	return tfb, config.StorageView
 }
 
 var runAcceptanceTests = os.Getenv(envVarRunAccTests) == "1"
@@ -59,13 +67,15 @@ type testEnv struct {
 }
 
 func (e *testEnv) AddConfig(t *testing.T) {
+	data := map[string]interface{}{
+		"token": e.Token,
+	}
+
 	req := &logical.Request{
 		Operation: logical.CreateOperation,
 		Path:      "config",
 		Storage:   e.Storage,
-		Data: map[string]interface{}{
-			"token": e.Token,
-		},
+		Data:      data,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
 	require.Nil(t, resp)
@@ -119,8 +129,8 @@ func (e *testEnv) AddTeamLegacyTokenRole(t *testing.T) {
 		Path:      "role/test-team-token",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"organization": e.Organization,
-			"team_id":      e.TeamID,
+			"team_id":         e.TeamID,
+			"credential_type": teamLegacyCredentialType,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)

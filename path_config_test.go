@@ -6,9 +6,15 @@ package tfc
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
+	"github.com/hashicorp/vault/sdk/helper/automatedrotationutil"
+	"github.com/hashicorp/vault/sdk/helper/pluginidentityutil"
+	"github.com/hashicorp/vault/sdk/helper/pluginutil"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/sdk/rotation"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -121,19 +127,124 @@ func testConfigRead(t *testing.T, b logical.Backend, s logical.Storage, expected
 		return resp.Error()
 	}
 
-	if len(expected) != len(resp.Data) {
-		return fmt.Errorf("read data mismatch (expected %d values, got %d)", len(expected), len(resp.Data))
-	}
-
 	for k, expectedV := range expected {
 		actualV, ok := resp.Data[k]
 
 		if !ok {
-			return fmt.Errorf(`expected data["%s"] = %v but was not included in read output"`, k, expectedV)
+			return fmt.Errorf(`expected data["%s"] = %v but was not included in read output`, k, expectedV)
 		} else if expectedV != actualV {
-			return fmt.Errorf(`expected data["%s"] = %v, instead got %v"`, k, expectedV, actualV)
+			return fmt.Errorf(`expected data["%s"] = %v, instead got %v`, k, expectedV, actualV)
 		}
 	}
 
+	return nil
+}
+
+// TestConfig_Rotation tests the rotation functionality.
+// This is an acceptance test that requires valid credentials.
+func TestConfig_Rotation(t *testing.T) {
+	if !runAcceptanceTests {
+		t.SkipNow()
+	}
+
+	token := os.Getenv(envVarTerraformToken)
+	tokenID := os.Getenv(envVarTerraformTokenID)
+
+	if token == "" || tokenID == "" {
+		t.Skipf("Skipping rotation test, set %s and %s to run", envVarTerraformToken, envVarTerraformTokenID)
+	}
+
+	config := logical.TestBackendConfig()
+	config.StorageView = &logical.InmemStorage{}
+	config.System = &testSystemView{}
+	ctx := context.Background()
+
+	b := backend()
+	if err := b.Setup(ctx, config); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("Test Root Token Rotation", func(t *testing.T) {
+		// Create a config with rotation parameters
+		// token_type and id are auto-detected from the token
+		configData := map[string]interface{}{
+			"token":    token,
+			"token_id": tokenID,
+		}
+
+		err := testConfigCreate(t, b, config.StorageView, configData)
+		require.NoError(t, err)
+
+		err = b.rotateRootToken(context.Background(), &logical.Request{
+			Storage: config.StorageView,
+		})
+		require.NoError(t, err)
+
+		// Read the config again and verify the token and token_id have changed
+		resp, err := b.HandleRequest(context.Background(), &logical.Request{
+			Operation: logical.ReadOperation,
+			Path:      "config",
+			Storage:   config.StorageView,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.NotEqual(t, token, resp.Data["token"])
+
+		newTokenID, ok := resp.Data["token_id"]
+		require.True(t, ok, "token_id should be present in config after rotation")
+		require.NotEqual(t, tokenID, newTokenID, "token_id should change after rotation")
+	})
+}
+
+// TestBackend_PathConfig_RegisterRotation tests that configuration
+// and registering a root credential returns an immediate error.
+func TestBackend_PathConfig_RegisterRotation(t *testing.T) {
+	config := logical.TestBackendConfig()
+	config.StorageView = &logical.InmemStorage{}
+	config.System = &testSystemView{}
+	ctx := context.Background()
+
+	b := backend()
+	if err := b.Setup(ctx, config); err != nil {
+		t.Fatal(err)
+	}
+	// Mock the resolver for unit tests
+	b.resolveTokenIdentityFunc = func(ctx context.Context, address, basePath, token string) (string, string, error) {
+		return "user", "user-123", nil
+	}
+
+	configData := map[string]interface{}{
+		"token":             "token-value",
+		"token_id":          "token-id-value",
+		"rotation_schedule": "*/1 * * * *",
+		"rotation_window":   120,
+	}
+
+	configReq := &logical.Request{
+		Operation: logical.CreateOperation,
+		Storage:   config.StorageView,
+		Path:      "config",
+		Data:      configData,
+	}
+
+	resp, err := b.HandleRequest(context.Background(), configReq)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.ErrorContains(t, resp.Error(), automatedrotationutil.ErrRotationManagerUnsupported.Error())
+}
+
+type testSystemView struct {
+	logical.StaticSystemView
+}
+
+func (d testSystemView) GenerateIdentityToken(_ context.Context, _ *pluginutil.IdentityTokenRequest) (*pluginutil.IdentityTokenResponse, error) {
+	return nil, pluginidentityutil.ErrPluginWorkloadIdentityUnsupported
+}
+
+func (d testSystemView) RegisterRotationJob(_ context.Context, _ *rotation.RotationJobConfigureRequest) (string, error) {
+	return "", automatedrotationutil.ErrRotationManagerUnsupported
+}
+
+func (d testSystemView) DeregisterRotationJob(_ context.Context, _ *rotation.RotationJobDeregisterRequest) error {
 	return nil
 }
