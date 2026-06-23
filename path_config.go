@@ -7,8 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/automatedrotationutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -17,13 +19,29 @@ const (
 )
 
 type tfConfig struct {
+	automatedrotationutil.AutomatedRotationParams
+	automatedrotationutil.RotationInfoResponseParams
+
 	Token    string `json:"token"`
 	Address  string `json:"address"`
 	BasePath string `json:"base_path"`
+
+	// ExplicitMaxTTL is the expiration set on the root token in Terraform
+	// Cloud/Enterprise. The zero value omits the expiration on creation, which
+	// causes Terraform to apply its default token expiry (2 years). It is an
+	// upper-bound safety net; Vault owns the root token lifecycle.
+	ExplicitMaxTTL time.Duration `json:"explicit_max_ttl"`
+
+	// The following fields describe the configured root token and its owner.
+	// They are discovered from Terraform Cloud/Enterprise at rotation time and
+	// are not set directly by the operator.
+	TokenOwnerType string `json:"token_owner_type,omitempty"`
+	OwnerID        string `json:"owner_id,omitempty"`
+	TokenID        string `json:"token_id,omitempty"`
 }
 
 func pathConfig(b *tfBackend) *framework.Path {
-	return &framework.Path{
+	p := &framework.Path{
 		Pattern: "config",
 		DisplayAttrs: &framework.DisplayAttributes{
 			OperationPrefix: operationPrefixTerraformCloud,
@@ -49,6 +67,15 @@ func pathConfig(b *tfBackend) *framework.Path {
 				Description: `The base path for the Terraform Cloud or Enterprise API.
 				Default is "/api/v2/".`,
 				Default: "/api/v2/",
+			},
+			"explicit_max_ttl": {
+				Type:    framework.TypeDurationSecond,
+				Default: 0,
+				Description: `The maximum lifetime (expiration) set on the root token in
+				Terraform Cloud or Enterprise. Acts as an upper-bound safety net; Vault
+				manages the root token lifecycle. The default (0) omits the expiration
+				so Terraform applies its default token expiry (2 years). The same value
+				is used for both manual and automatic rotation.`,
 			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -81,6 +108,15 @@ func pathConfig(b *tfBackend) *framework.Path {
 		HelpSynopsis:    pathConfigHelpSynopsis,
 		HelpDescription: pathConfigHelpDescription,
 	}
+
+	// Add the standard automated rotation fields (rotation_schedule,
+	// rotation_window, rotation_period, disable_automated_rotation, and
+	// rotation_policy). Automated rotation relies on the Rotation Manager, which
+	// is only available in Vault Enterprise; setting any of these fields in Vault
+	// community edition returns an error when the rotation job is registered.
+	automatedrotationutil.AddAutomatedRotationFields(p.Fields)
+
+	return p
 }
 
 func (b *tfBackend) pathConfigExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
@@ -98,11 +134,39 @@ func (b *tfBackend) pathConfigRead(ctx context.Context, req *logical.Request, da
 		return nil, err
 	}
 
+	if config == nil {
+		return nil, nil
+	}
+
+	// The token is intentionally not returned by this endpoint.
+	configData := map[string]interface{}{
+		"address":          config.Address,
+		"base_path":        config.BasePath,
+		"explicit_max_ttl": int64(config.ExplicitMaxTTL.Seconds()),
+	}
+
+	if config.TokenOwnerType != "" {
+		configData["token_owner_type"] = config.TokenOwnerType
+	}
+	if config.OwnerID != "" {
+		configData["owner_id"] = config.OwnerID
+	}
+
+	config.PopulateAutomatedRotationData(configData)
+
+	// last_vault_rotation and next_vault_rotation are only meaningful once a
+	// rotation has occurred or a rotation job has been registered. Omit them
+	// while unset to avoid returning null values.
+	config.PopulateRotationInfo(configData)
+	if configData["last_vault_rotation"] == nil {
+		delete(configData, "last_vault_rotation")
+	}
+	if configData["next_vault_rotation"] == nil {
+		delete(configData, "next_vault_rotation")
+	}
+
 	return &logical.Response{
-		Data: map[string]interface{}{
-			"address":   config.Address,
-			"base_path": config.BasePath,
-		},
+		Data: configData,
 	}, nil
 }
 
@@ -130,13 +194,26 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		config.Token = token.(string)
 	}
 
-	entry, err := logical.StorageEntryJSON(configStoragePath, config)
-	if err != nil {
-		return nil, err
+	if explicitMaxTTLRaw, ok := data.GetOk("explicit_max_ttl"); ok {
+		config.ExplicitMaxTTL = time.Duration(explicitMaxTTLRaw.(int)) * time.Second
+	} else if req.Operation == logical.CreateOperation {
+		config.ExplicitMaxTTL = time.Duration(data.Get("explicit_max_ttl").(int)) * time.Second
 	}
 
-	if err := req.Storage.Put(ctx, entry); err != nil {
-		return nil, err
+	// Register or deregister the Rotation Manager job based on the supplied
+	// rotation fields. HandleRotationJob also parses the automated rotation
+	// fields, so they are not parsed separately here. In Vault community edition
+	// this returns an error if any rotation field is set, because the Rotation
+	// Manager is only available in Vault Enterprise.
+	rotationResp, err := config.HandleRotationJob(ctx, b.Backend, data, req)
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+	config.SetRotationInfo(rotationResp.RotationInfo)
+
+	err = writeConfig(ctx, req.Storage, config)
+	if storageErr := rotationResp.HandleStorageErrorAfterRotationJob(req, err); storageErr != nil {
+		return nil, storageErr
 	}
 
 	// reset the client so the next invocation will pick up the new configuration
@@ -172,6 +249,15 @@ func getConfig(ctx context.Context, s logical.Storage) (*tfConfig, error) {
 
 	// return the config, we are done
 	return config, nil
+}
+
+func writeConfig(ctx context.Context, s logical.Storage, config *tfConfig) error {
+	entry, err := logical.StorageEntryJSON(configStoragePath, config)
+	if err != nil {
+		return err
+	}
+
+	return s.Put(ctx, entry)
 }
 
 const pathConfigHelpSynopsis = `Configure the Terraform Cloud / Enterprise backend.`

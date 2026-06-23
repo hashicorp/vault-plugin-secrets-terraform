@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -26,8 +27,13 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 
 type tfBackend struct {
 	*framework.Backend
-	lock   sync.RWMutex
-	client *client
+	lock sync.RWMutex
+	// rotationLock serializes the entire root-token rotation operation so a
+	// manual rotation and an automated Rotation Manager rotation cannot
+	// interleave. It must be distinct from lock, which guards the client cache
+	// and is taken by getClient and reset (both called during rotation).
+	rotationLock sync.Mutex
+	client       *client
 }
 
 func backend() *tfBackend {
@@ -49,6 +55,7 @@ func backend() *tfBackend {
 			[]*framework.Path{
 				pathConfig(&b),
 				pathCredentials(&b),
+				pathRotateRoot(&b),
 			},
 			pathRotateRole(&b),
 		),
@@ -57,6 +64,18 @@ func backend() *tfBackend {
 		},
 		BackendType: logical.TypeLogical,
 		Invalidate:  b.invalidate,
+		// RotateCredential is invoked by the Rotation Manager (Vault Enterprise)
+		// to perform scheduled root-token rotation. It shares the same core
+		// implementation as the manual rotate-root endpoint.
+		RotateCredential: func(ctx context.Context, req *logical.Request) error {
+			_, err := b.rotateRootToken(ctx, req)
+			return err
+		},
+		// WALRollback reconciles a root-token rotation that was interrupted by a
+		// crash or failover. WALRollbackMinAge is longer than a rotation takes,
+		// so an in-flight rotation's WAL is never rolled back prematurely.
+		WALRollback:       b.walRollback,
+		WALRollbackMinAge: 5 * time.Minute,
 	}
 
 	return &b

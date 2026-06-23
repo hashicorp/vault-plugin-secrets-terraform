@@ -23,8 +23,14 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
-			"base_path": "/api/v2/",
-			"address":   "https://app.terraform.io",
+			"base_path":                  "/api/v2/",
+			"address":                    "https://app.terraform.io",
+			"explicit_max_ttl":           int64(0),
+			"rotation_schedule":          "",
+			"rotation_window":            float64(0),
+			"rotation_period":            float64(0),
+			"rotation_policy":            "",
+			"disable_automated_rotation": false,
 		})
 
 		require.NoError(t, err)
@@ -37,8 +43,14 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
-			"base_path": "/v1/",
-			"address":   "https://tfe.local",
+			"base_path":                  "/v1/",
+			"address":                    "https://tfe.local",
+			"explicit_max_ttl":           int64(0),
+			"rotation_schedule":          "",
+			"rotation_window":            float64(0),
+			"rotation_period":            float64(0),
+			"rotation_policy":            "",
+			"disable_automated_rotation": false,
 		})
 
 		require.NoError(t, err)

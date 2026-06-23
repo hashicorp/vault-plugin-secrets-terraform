@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/sdk/rotation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,7 +29,9 @@ func getTestBackend(tb testing.TB) (*tfBackend, logical.Storage) {
 	config := logical.TestBackendConfig()
 	config.StorageView = new(logical.InmemStorage)
 	config.Logger = hclog.NewNullLogger()
-	config.System = logical.TestSystemView()
+	config.System = &testSystemView{
+		StaticSystemView: *logical.TestSystemView(),
+	}
 
 	b, err := Factory(context.Background(), config)
 	if err != nil {
@@ -36,6 +39,18 @@ func getTestBackend(tb testing.TB) (*tfBackend, logical.Storage) {
 	}
 
 	return b.(*tfBackend), config.StorageView
+}
+
+// testSystemView wraps a StaticSystemView so that the Rotation Manager
+// deregister call issued on every config write succeeds. This mirrors Vault
+// community edition, where DeregisterRotationJob is a no-op, and matches the
+// test harness used by other rotation-enabled engines.
+type testSystemView struct {
+	logical.StaticSystemView
+}
+
+func (d testSystemView) DeregisterRotationJob(_ context.Context, _ *rotation.RotationJobDeregisterRequest) error {
+	return nil
 }
 
 var runAcceptanceTests = os.Getenv(envVarRunAccTests) == "1"
