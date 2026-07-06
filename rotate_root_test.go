@@ -6,6 +6,7 @@ package tfc
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -40,9 +41,10 @@ type mockTFE struct {
 	// engine can discover the id of the configured token.
 	authTokenLink string
 
-	mu          sync.Mutex
-	deletedIDs  []string
-	createdPath string
+	mu            sync.Mutex
+	deletedIDs    []string
+	createdPath   string
+	createdBodies []string
 }
 
 func newMockTFE(t *testing.T, resourceType, ownerID, authTokenLink string) *mockTFE {
@@ -79,8 +81,10 @@ func newMockTFE(t *testing.T, resourceType, ownerID, authTokenLink string) *mock
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				return
 			}
+			body, _ := io.ReadAll(r.Body)
 			m.mu.Lock()
 			m.createdPath = r.URL.Path
+			m.createdBodies = append(m.createdBodies, string(body))
 			m.mu.Unlock()
 			w.Header().Set("Content-Type", "application/vnd.api+json")
 			fmt.Fprint(w, tokenJSONAPI(newID, newToken, rootTokenDescription))
@@ -113,6 +117,13 @@ func (m *mockTFE) deleted() []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return append([]string(nil), m.deletedIDs...)
+}
+
+// createBodies returns the raw request bodies of every token-create call.
+func (m *mockTFE) createBodies() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.createdBodies...)
 }
 
 func tokenJSONAPI(id, token, description string) string {
@@ -218,6 +229,36 @@ func TestRotateRoot_Organization_NoRevocation(t *testing.T) {
 	config, err := getConfig(context.Background(), storage)
 	require.NoError(t, err)
 	require.Equal(t, "new-org-token", config.Token)
+}
+
+func TestRotateRoot_Team_UniqueDescriptionAndRevoke(t *testing.T) {
+	b, storage := getTestBackend(t)
+	m := newMockTFE(t, "teams", "team-abc", "/api/v2/authentication-tokens/at-old-team")
+	writeRotationTestConfig(t, b, storage, m.server.URL)
+
+	resp := rotateRoot(t, b, storage)
+
+	require.Empty(t, resp.Warnings, "team token id was known, so no secret-zero warning expected")
+	require.Equal(t, tokenOwnerTypeTeam, resp.Data["token_owner_type"])
+	require.Equal(t, "team-abc", resp.Data["owner_id"])
+
+	// The previous team token is revoked by id.
+	require.Equal(t, []string{"at-old-team"}, m.deleted())
+
+	// Terraform requires team token descriptions to be unique per team, and the
+	// replacement is created before the old one is deleted. The create request
+	// must therefore carry the description prefix plus a unique suffix, never the
+	// bare constant.
+	bodies := m.createBodies()
+	require.Len(t, bodies, 1)
+	require.Contains(t, bodies[0], rootTokenDescription+"(",
+		"team token description must include a unique suffix")
+
+	config, err := getConfig(context.Background(), storage)
+	require.NoError(t, err)
+	require.Equal(t, "new-team-token", config.Token)
+	require.Equal(t, "at-new-team", config.TokenID)
+	require.Equal(t, tokenOwnerTypeTeam, config.TokenOwnerType)
 }
 
 func TestRotateRoot_NotConfigured(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/hashicorp/go-tfe"
@@ -80,7 +81,11 @@ func (c *client) createRootToken(ctx context.Context, ownerType, ownerID string,
 			ExpiredAt: token.ExpiredAt,
 		}, nil
 	case tokenOwnerTypeTeam:
-		description := rootTokenDescription
+		// Terraform requires team token descriptions to be unique per team.
+		// Rotation creates the replacement token before deleting the previous
+		// one, so both briefly coexist; a unique suffix avoids colliding with the
+		// outgoing token's description. This mirrors createTeamTokenWithOptions.
+		description := fmt.Sprintf("%s(%d)", rootTokenDescription, rand.Intn(10000))
 		token, err := c.TeamTokens.CreateWithOptions(ctx, ownerID, tfe.TeamTokenCreateOptions{
 			Description: &description,
 			ExpiredAt:   expiredAt,
