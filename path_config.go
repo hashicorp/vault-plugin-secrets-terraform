@@ -183,21 +183,40 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 		config = new(tfConfig)
 	}
 
-	address := data.Get("address").(string)
-	basePath := data.Get("base_path").(string)
+	// address and base_path fall back to the stored value on update and to the
+	// schema default on create, so a token-only update does not reset them and
+	// discovery runs against the correct endpoint.
+	if address, ok := data.GetOk("address"); ok {
+		config.Address = address.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.Address = data.Get("address").(string)
+	}
 
-	config.Address = address
-	config.BasePath = basePath
-
-	token, ok := data.GetOk("token")
-	if ok {
-		config.Token = token.(string)
+	if basePath, ok := data.GetOk("base_path"); ok {
+		config.BasePath = basePath.(string)
+	} else if req.Operation == logical.CreateOperation {
+		config.BasePath = data.Get("base_path").(string)
 	}
 
 	if explicitMaxTTLRaw, ok := data.GetOk("explicit_max_ttl"); ok {
 		config.ExplicitMaxTTL = time.Duration(explicitMaxTTLRaw.(int)) * time.Second
 	} else if req.Operation == logical.CreateOperation {
 		config.ExplicitMaxTTL = time.Duration(data.Get("explicit_max_ttl").(int)) * time.Second
+	}
+
+	if token, ok := data.GetOk("token"); ok {
+		config.Token = token.(string)
+
+		// Auto-discover the token owner from Terraform Cloud/Enterprise. This
+		// verifies the token and records the owner metadata used for rotation. A
+		// discovery failure fails the write so an invalid or misconfigured token
+		// surfaces immediately instead of at first rotation. Rediscovering
+		// whenever the token is written also keeps the owner metadata correct
+		// when the token is replaced with a different type (for example, user to
+		// team).
+		if err := discoverAndSetOwner(ctx, config); err != nil {
+			return logical.ErrorResponse("failed to verify the configured token with Terraform: %s", err), nil
+		}
 	}
 
 	// Register or deregister the Rotation Manager job based on the supplied
@@ -220,6 +239,28 @@ func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, d
 	b.reset()
 
 	return nil, nil
+}
+
+// discoverAndSetOwner verifies the configured token against Terraform
+// Cloud/Enterprise and records the discovered owner metadata on config. The
+// token id is empty on older Terraform Enterprise that does not expose the
+// auth-token link; rotation warns to revoke the initial token manually in that
+// case.
+func discoverAndSetOwner(ctx context.Context, config *tfConfig) error {
+	c, err := newClient(config)
+	if err != nil {
+		return fmt.Errorf("error building client: %w", err)
+	}
+
+	ownerType, ownerID, tokenID, err := c.discoverTokenOwner(ctx)
+	if err != nil {
+		return err
+	}
+
+	config.TokenOwnerType = ownerType
+	config.OwnerID = ownerID
+	config.TokenID = tokenID
+	return nil
 }
 
 func (b *tfBackend) pathConfigDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
