@@ -129,13 +129,12 @@ func (b *tfBackend) pathConfigExistenceCheck(ctx context.Context, req *logical.R
 }
 
 func (b *tfBackend) pathConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	// Serialize against rotation so a read cannot observe a partially updated
-	// config while rotateRootToken is mid-flight. Taken shared so concurrent
-	// reads proceed in parallel; the rotation and config write/delete paths take
-	// it exclusively.
-	b.rotationLock.RLock()
-	defer b.rotationLock.RUnlock()
-
+	// No rotationLock here: a read is a single storage Get (atomic at the entry
+	// level, so it never observes a half-written config) and does no
+	// read-modify-write, so it cannot lose an update. Reads may also be served
+	// from performance standby/secondary nodes where rotation never runs
+	// locally, so a local lock would guard nothing there while adding contention
+	// against rotation on the active node.
 	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
