@@ -20,6 +20,8 @@ func TestParseAuthTokenID(t *testing.T) {
 		"id only":           {link: "at-a7B29xYqL5mP0wK1", expected: "at-a7B29xYqL5mP0wK1"},
 		"surrounding space": {link: "  /api/v2/authentication-tokens/at-123  ", expected: "at-123"},
 		"non token link":    {link: "/api/v2/users/user-123", expected: ""},
+		"root only":         {link: "/", expected: ""},
+		"trailing slash":    {link: "/api/v2/authentication-tokens/", expected: ""},
 	}
 
 	for name, tc := range cases {
