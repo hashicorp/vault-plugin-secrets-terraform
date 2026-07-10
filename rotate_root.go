@@ -181,8 +181,8 @@ func (b *tfBackend) clearRotationWAL(ctx context.Context, req *logical.Request, 
 		return ""
 	}
 	if err := framework.DeleteWAL(ctx, req.Storage, walID); err != nil {
-		return fmt.Sprintf("rotation succeeded but the write-ahead log entry could not be cleared; "+
-			"it will be reconciled automatically: %s", err)
+		return fmt.Sprintf("rotation succeeded but the write-ahead log entry (%s) could not be cleared; "+
+			"it will be reconciled automatically: %s", walID, err)
 	}
 	return ""
 }
