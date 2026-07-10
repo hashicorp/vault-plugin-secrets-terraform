@@ -1,5 +1,15 @@
 ## Unreleased
 
+FEATURES:
+* Add root token rotation. A new `rotate-root` endpoint performs on-demand
+  rotation of the Terraform Cloud/Enterprise token Vault uses, and the `config`
+  endpoint accepts the standard automated rotation fields
+  (`rotation_schedule`, `rotation_window`, `rotation_period`,
+  `disable_automated_rotation`, `rotation_policy`) for scheduled rotation via the
+  Vault Enterprise Rotation Manager. A new `explicit_max_ttl` config field sets
+  the expiration of the rotated token in Terraform. Rotation is serialized and
+  recovers from a crash or failover mid-rotation using a write-ahead log.
+
 ## v0.14.1
 ### March 19, 2026
 
