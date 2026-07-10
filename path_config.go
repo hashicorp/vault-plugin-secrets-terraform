@@ -129,6 +129,13 @@ func (b *tfBackend) pathConfigExistenceCheck(ctx context.Context, req *logical.R
 }
 
 func (b *tfBackend) pathConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	// Serialize against rotation so a read cannot observe a partially updated
+	// config while rotateRootToken is mid-flight. Taken shared so concurrent
+	// reads proceed in parallel; the rotation and config write/delete paths take
+	// it exclusively.
+	b.rotationLock.RLock()
+	defer b.rotationLock.RUnlock()
+
 	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -171,6 +178,15 @@ func (b *tfBackend) pathConfigRead(ctx context.Context, req *logical.Request, da
 }
 
 func (b *tfBackend) pathConfigWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	// Serialize config mutations against root-token rotation. Both this handler
+	// and rotateRootToken do a read-modify-write of the same config storage key;
+	// without this lock a concurrent rotation and config write can clobber each
+	// other, leaving config.Token out of sync with config.TokenID. This is the
+	// same lock rotateRootToken holds, and it is distinct from b.lock (which
+	// guards the client cache and is taken by reset and getClient).
+	b.rotationLock.Lock()
+	defer b.rotationLock.Unlock()
+
 	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -264,6 +280,12 @@ func discoverAndSetOwner(ctx context.Context, config *tfConfig) error {
 }
 
 func (b *tfBackend) pathConfigDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	// Serialize against root-token rotation so a delete cannot race with an
+	// in-flight rotation's read-modify-write of the config entry. Same lock
+	// rotateRootToken holds; distinct from b.lock, which reset takes.
+	b.rotationLock.Lock()
+	defer b.rotationLock.Unlock()
+
 	err := req.Storage.Delete(ctx, configStoragePath)
 
 	if err == nil {

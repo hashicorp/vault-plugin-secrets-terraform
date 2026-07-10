@@ -30,9 +30,11 @@ type tfBackend struct {
 	lock sync.RWMutex
 	// rotationLock serializes the entire root-token rotation operation so a
 	// manual rotation and an automated Rotation Manager rotation cannot
-	// interleave. It must be distinct from lock, which guards the client cache
-	// and is taken by getClient and reset (both called during rotation).
-	rotationLock sync.Mutex
+	// interleave. Config writes and deletes take it exclusively, and config
+	// reads take it shared, so no operation observes a config torn mid-rotation.
+	// It must be distinct from lock, which guards the client cache and is taken
+	// by getClient and reset (both called during rotation).
+	rotationLock sync.RWMutex
 	client       *client
 }
 

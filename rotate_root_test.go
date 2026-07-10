@@ -45,6 +45,15 @@ type mockTFE struct {
 	deletedIDs    []string
 	createdPath   string
 	createdBodies []string
+
+	// uniqueTokens makes every create return a distinct token id/value
+	// (at-new-<type>-N). This is required to reason about orphaned tokens across
+	// many rotations; the default fixed-id behavior is kept for existing tests.
+	uniqueTokens bool
+	createCount  int
+	// liveTokens tracks tokens created via the create endpoint that have not yet
+	// been deleted. It is the set used to detect orphans.
+	liveTokens map[string]bool
 }
 
 func newMockTFE(t *testing.T, resourceType, ownerID, authTokenLink string) *mockTFE {
@@ -54,6 +63,7 @@ func newMockTFE(t *testing.T, resourceType, ownerID, authTokenLink string) *mock
 		resourceType:  resourceType,
 		ownerID:       ownerID,
 		authTokenLink: authTokenLink,
+		liveTokens:    make(map[string]bool),
 	}
 
 	mux := http.NewServeMux()
@@ -83,11 +93,18 @@ func newMockTFE(t *testing.T, resourceType, ownerID, authTokenLink string) *mock
 			}
 			body, _ := io.ReadAll(r.Body)
 			m.mu.Lock()
+			id, token := newID, newToken
+			if m.uniqueTokens {
+				m.createCount++
+				id = fmt.Sprintf("%s-%d", newID, m.createCount)
+				token = fmt.Sprintf("%s-%d", newToken, m.createCount)
+			}
 			m.createdPath = r.URL.Path
 			m.createdBodies = append(m.createdBodies, string(body))
+			m.liveTokens[id] = true
 			m.mu.Unlock()
 			w.Header().Set("Content-Type", "application/vnd.api+json")
-			fmt.Fprint(w, tokenJSONAPI(newID, newToken, rootTokenDescription))
+			fmt.Fprint(w, tokenJSONAPI(id, token, rootTokenDescription))
 		}
 	}
 	mux.HandleFunc("/api/v2/organizations/"+ownerID+"/authentication-token", tokenCreate("at-new-org", "new-org-token"))
@@ -103,6 +120,7 @@ func newMockTFE(t *testing.T, resourceType, ownerID, authTokenLink string) *mock
 		id := strings.TrimPrefix(r.URL.Path, "/api/v2/authentication-tokens/")
 		m.mu.Lock()
 		m.deletedIDs = append(m.deletedIDs, id)
+		delete(m.liveTokens, id)
 		m.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -124,6 +142,19 @@ func (m *mockTFE) createBodies() []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return append([]string(nil), m.createdBodies...)
+}
+
+// liveCreatedTokens returns the ids of tokens created via the create endpoint
+// that have not been deleted. Any such token that is not the one referenced by
+// the stored config is an orphan.
+func (m *mockTFE) liveCreatedTokens() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]string, 0, len(m.liveTokens))
+	for id := range m.liveTokens {
+		out = append(out, id)
+	}
+	return out
 }
 
 func tokenJSONAPI(id, token, description string) string {
@@ -345,4 +376,124 @@ func TestWALRollback_UnknownKind(t *testing.T) {
 	b, storage := getTestBackend(t)
 	err := b.walRollback(context.Background(), &logical.Request{Storage: storage}, "someOtherKind", map[string]interface{}{})
 	require.Error(t, err)
+}
+
+// TestRotateRoot_ConcurrentConfigOps_NoRaceOrTear exercises rotation, config
+// writes, and config reads concurrently to verify they are serialized by
+// rotationLock. Run under -race, it guards against a regression where a config
+// write and a rotation interleave their read-modify-write of the config entry,
+// leaving config.Token out of sync with config.TokenID (torn state) or losing
+// an update entirely.
+func TestRotateRoot_ConcurrentConfigOps_NoRaceOrTear(t *testing.T) {
+	b, storage := getTestBackend(t)
+	m := newMockTFE(t, "users", "user-abc", "/api/v2/authentication-tokens/at-old-user")
+	writeRotationTestConfig(t, b, storage, m.server.URL)
+
+	const iterations = 50
+	var wg sync.WaitGroup
+	for i := 0; i < iterations; i++ {
+		wg.Add(3)
+
+		// Concurrent rotation.
+		go func() {
+			defer wg.Done()
+			_, _ = b.HandleRequest(context.Background(), &logical.Request{
+				Operation: logical.UpdateOperation,
+				Path:      "rotate-root",
+				Storage:   storage,
+			})
+		}()
+
+		// Concurrent config write (token-only update).
+		go func() {
+			defer wg.Done()
+			_, _ = b.HandleRequest(context.Background(), &logical.Request{
+				Operation: logical.UpdateOperation,
+				Path:      "config",
+				Data: map[string]interface{}{
+					"token": "secret-zero-token",
+				},
+				Storage: storage,
+			})
+		}()
+
+		// Concurrent config read.
+		go func() {
+			defer wg.Done()
+			_, _ = b.HandleRequest(context.Background(), &logical.Request{
+				Operation: logical.ReadOperation,
+				Path:      "config",
+				Storage:   storage,
+			})
+		}()
+	}
+	wg.Wait()
+
+	// After all concurrent operations settle, the persisted config must be
+	// internally consistent: Token and TokenID must belong to the same token.
+	// Each handler builds a complete config under the exclusive lock, so the
+	// stored pair is always one produced by a single operation, never a mix of
+	// one operation's Token with another's TokenID.
+	config, err := getConfig(context.Background(), storage)
+	require.NoError(t, err)
+	require.NotEmpty(t, config.Token, "config.Token must not be empty after concurrent ops")
+	require.NotEmpty(t, config.TokenID, "config.TokenID must not be empty after concurrent ops")
+
+	// The only two consistent (Token, TokenID) pairs the mock can produce:
+	//   - rotation:     ("new-user-token", "at-new-user")
+	//   - config write: ("secret-zero-token", "at-old-user")  [owner re-discovered]
+	validPairs := map[string]string{
+		"new-user-token":    "at-new-user",
+		"secret-zero-token": "at-old-user",
+	}
+	wantID, ok := validPairs[config.Token]
+	require.True(t, ok, "config.Token has an unexpected value: %q", config.Token)
+	require.Equal(t, wantID, config.TokenID,
+		"config.Token %q and config.TokenID %q are mismatched (torn write)", config.Token, config.TokenID)
+	require.Equal(t, tokenOwnerTypeUser, config.TokenOwnerType)
+	require.Equal(t, "user-abc", config.OwnerID)
+}
+
+// TestRotateRoot_ConcurrentRotations_NoOrphans is the strong crash/concurrency
+// invariant for rotationLock. It fires many rotations concurrently (simulating a
+// manual rotate-root racing the automated Rotation Manager callback) and asserts
+// that no orphaned tokens are left behind in Terraform: every token created must
+// either be revoked or be the single token the committed config now points to.
+//
+// Without the lock this fails: two rotations read the same previous token id,
+// both create a replacement, both persist (last writer wins), and both revoke
+// the same previous token, leaving the other replacement created-but-never-
+// revoked, i.e. orphaned. The lock serializes rotations so each revokes exactly
+// the token the prior one created.
+func TestRotateRoot_ConcurrentRotations_NoOrphans(t *testing.T) {
+	b, storage := getTestBackend(t)
+	m := newMockTFE(t, "users", "user-abc", "/api/v2/authentication-tokens/at-old-user")
+	m.uniqueTokens = true
+	writeRotationTestConfig(t, b, storage, m.server.URL)
+
+	const rotations = 30
+	var wg sync.WaitGroup
+	wg.Add(rotations)
+	for i := 0; i < rotations; i++ {
+		go func() {
+			defer wg.Done()
+			_, _ = b.HandleRequest(context.Background(), &logical.Request{
+				Operation: logical.UpdateOperation,
+				Path:      "rotate-root",
+				Storage:   storage,
+			})
+		}()
+	}
+	wg.Wait()
+
+	config, err := getConfig(context.Background(), storage)
+	require.NoError(t, err)
+	require.NotEmpty(t, config.TokenID)
+
+	// The only token that may remain live in Terraform is the one the committed
+	// config references. Anything else is an orphan created by an interleaved
+	// rotation whose replacement was never revoked.
+	live := m.liveCreatedTokens()
+	require.ElementsMatch(t, []string{config.TokenID}, live,
+		"expected exactly the committed token to remain live; extra entries are orphaned tokens")
 }
