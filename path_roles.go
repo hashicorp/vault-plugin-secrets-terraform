@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/go-secure-stdlib/strutil"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/custommetadata"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -31,23 +32,25 @@ func credentialType_Values() []string {
 
 // terraformRoleEntry is a Vault role construct that maps to TFC/TFE
 type terraformRoleEntry struct {
-	Name           string        `json:"name"`
-	Organization   string        `json:"organization,omitempty"`
-	TeamID         string        `json:"team_id,omitempty"`
-	UserID         string        `json:"user_id,omitempty"`
-	Description    string        `json:"description,omitempty"`
-	TTL            time.Duration `json:"ttl"`
-	MaxTTL         time.Duration `json:"max_ttl"`
-	CredentialType string        `json:"credential_type,omitempty"`
-	Token          string        `json:"token,omitempty"`
-	TokenID        string        `json:"token_id,omitempty"`
+	Name           string            `json:"name"`
+	Organization   string            `json:"organization,omitempty"`
+	TeamID         string            `json:"team_id,omitempty"`
+	UserID         string            `json:"user_id,omitempty"`
+	Description    string            `json:"description,omitempty"`
+	TTL            time.Duration     `json:"ttl"`
+	MaxTTL         time.Duration     `json:"max_ttl"`
+	CredentialType string            `json:"credential_type,omitempty"`
+	Token          string            `json:"token,omitempty"`
+	TokenID        string            `json:"token_id,omitempty"`
+	Metadata       map[string]string `json:"metadata"`
 }
 
 func (r *terraformRoleEntry) toResponseData() map[string]interface{} {
 	respData := map[string]interface{}{
-		"name":    r.Name,
-		"ttl":     r.TTL.Seconds(),
-		"max_ttl": r.MaxTTL.Seconds(),
+		"name":     r.Name,
+		"ttl":      r.TTL.Seconds(),
+		"max_ttl":  r.MaxTTL.Seconds(),
+		"metadata": r.Metadata,
 	}
 	if r.Description != "" {
 		respData["description"] = r.Description
@@ -118,6 +121,11 @@ func pathRole(b *tfBackend) []*framework.Path {
 				"credential_type": {
 					Type:        framework.TypeString,
 					Description: "Credential type to be used for the token. Can be either 'user', 'org', 'team', or 'team_legacy'(deprecated).",
+				},
+				"metadata": {
+					Type:        framework.TypeMap,
+					Description: "A map of string key-value pairs to associate with the role.",
+					Required:    false,
 				},
 			},
 			Operations: map[logical.Operation]framework.OperationHandler{
@@ -247,6 +255,20 @@ func (b *tfBackend) pathRolesWrite(ctx context.Context, req *logical.Request, d 
 
 	if roleEntry.MaxTTL != 0 && roleEntry.TTL > roleEntry.MaxTTL {
 		return logical.ErrorResponse("ttl cannot be greater than max_ttl"), nil
+	}
+
+	if rawMeta, ok := d.GetOk("metadata"); ok {
+		cm, err := toStringMap(rawMeta)
+		if err != nil {
+			return logical.ErrorResponse("error parsing metadata: %s", err.Error()), nil
+		}
+		if err := custommetadata.Validate(cm); err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
+		roleEntry.Metadata = cm
+	}
+	if roleEntry.Metadata == nil {
+		roleEntry.Metadata = make(map[string]string)
 	}
 
 	if roleEntry.CredentialType == teamLegacyCredentialType {
