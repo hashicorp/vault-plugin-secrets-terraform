@@ -1,5 +1,8 @@
 ## Unreleased
 
+BUG FIXES:
+* Fix incorrect `expired_at` on team tokens when role `max_ttl` is smaller than system max TTL (VAULT-38815)
+
 FEATURES:
 * Add root token rotation. A new `rotate-root` endpoint performs on-demand
   rotation of the Terraform Cloud/Enterprise token Vault uses, and the `config`
