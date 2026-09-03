@@ -20,8 +20,8 @@ import (
 // teamTokenMock is a minimal HTTP server that records the expired-at value
 // sent by createTeamTokenWithOptions so we can assert it without a real TFC account.
 type teamTokenMock struct {
-	server     *httptest.Server
-	expiredAt  string // raw value from the JSON:API request body
+	server    *httptest.Server
+	expiredAt string // raw value from the JSON:API request body
 }
 
 func newTeamTokenMock(t *testing.T, teamID string) *teamTokenMock {
