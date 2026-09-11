@@ -1,4 +1,7 @@
-## Unreleased
+## v0.15.0
+### September 11, 2026
+
+* [VAULT-50076] Prepare v0.15.0 Release (#115)
 
 FEATURES:
 * Add root token rotation. A new `rotate-root` endpoint performs on-demand
