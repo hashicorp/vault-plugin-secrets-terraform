@@ -1,6 +1,9 @@
 ## v0.15.0
 ### September 11, 2026
 
+* [VAULT-50076] Prepare v0.15.0 Release (#115)
+* [CHANGELOG] Prepare for v0.14.1 release (#108)
+
 FEATURES:
 * Add root token rotation. A new `rotate-root` endpoint performs on-demand
   rotation of the Terraform Cloud/Enterprise token Vault uses, and the `config`
@@ -10,13 +13,6 @@ FEATURES:
   Vault Enterprise Rotation Manager. A new `explicit_max_ttl` config field sets
   the expiration of the rotated token in Terraform. Rotation is serialized and
   recovers from a crash or failover mid-rotation using a write-ahead log.
-
-IMPROVEMENTS:
-* Updated Go toolchain to 1.27.1 and minimum required Go version to 1.26.4 (#115).
-* Updated `github.com/hashicorp/vault/api` from v1.22.0 to v1.23.0 (#115).
-* Updated dependencies, including security fixes: `golang.org/x/crypto` to
-  v0.56.0, `google.golang.org/grpc` to v1.83.2, `golang.org/x/net` to v0.58.0,
-  `golang.org/x/text` to v0.41.0, and OpenTelemetry to v1.45.0 (#115).
 
 ## v0.14.1
 ### March 19, 2026
