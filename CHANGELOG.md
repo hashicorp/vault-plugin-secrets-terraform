@@ -5,8 +5,6 @@
 * [VAULT-43911] Implement root rotation for terraform secret engine (#111)
 * [CHANGELOG] Prepare for v0.14.1 release (#108)
 
-## Unreleased
-
 FEATURES:
 * Add root token rotation. A new `rotate-root` endpoint performs on-demand
   rotation of the Terraform Cloud/Enterprise token Vault uses, and the `config`
