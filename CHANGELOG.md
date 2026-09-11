@@ -2,7 +2,6 @@
 ### September 11, 2026
 
 * [VAULT-50076] Prepare v0.15.0 Release (#115)
-* [VAULT-43911] Implement root rotation for terraform secret engine (#111)
 * [CHANGELOG] Prepare for v0.14.1 release (#108)
 
 FEATURES:
