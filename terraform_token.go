@@ -78,9 +78,13 @@ func createTeamTokenWithOptions(ctx context.Context, c *client, roleEntry terraf
 		Description: &uniqueDescription,
 	}
 
-	maxTTL := max(roleEntry.MaxTTL, systemMaxTTL)
-	if maxTTL > 0 {
-		expiredAt := time.Now().Add(maxTTL)
+	effectiveMaxTTL := roleEntry.MaxTTL
+	if effectiveMaxTTL == 0 {
+		effectiveMaxTTL = systemMaxTTL
+	}
+
+	if effectiveMaxTTL > 0 {
+		expiredAt := time.Now().Add(effectiveMaxTTL)
 		createOpts.ExpiredAt = &expiredAt
 	}
 
