@@ -1,3 +1,12 @@
+## v0.15.1
+### October 26, 2026
+
+* fixed additional vulnerabilities for golang.org/x/net (#118)
+* VAULT-51780: chore: automated Go/dependency update via vault-plugin-release (#117)
+* [COMPLIANCE] Add/Update Copyright Headers (#110)
+* Fix incorrect expired_at on team tokens when role max_ttl is smaller than system max TTL (#114)
+* [CHANGELOG] Prepare for v0.15.0 release (#116)
+
 ## v0.15.0
 ### September 11, 2026
 
