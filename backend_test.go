@@ -5,10 +5,13 @@ package tfc
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/rotation"
 	"github.com/stretchr/testify/require"
@@ -51,6 +54,68 @@ type testSystemView struct {
 
 func (d testSystemView) DeregisterRotationJob(_ context.Context, _ *rotation.RotationJobDeregisterRequest) error {
 	return nil
+}
+
+// replicationTestSystemView reports a replication state and counts Rotation
+// Manager calls. Vault starts the Rotation Manager only on the active node, so
+// on a performance standby the calls fail the same way they do in Vault.
+type replicationTestSystemView struct {
+	logical.StaticSystemView
+
+	registerCalls   int
+	deregisterCalls int
+}
+
+func (s *replicationTestSystemView) rotationManagerRunning() bool {
+	return !s.ReplicationStateVal.HasState(consts.ReplicationPerformanceStandby)
+}
+
+func (s *replicationTestSystemView) rotationManagerCalls() int {
+	return s.registerCalls + s.deregisterCalls
+}
+
+func (s *replicationTestSystemView) RegisterRotationJobWithResponse(_ context.Context, _ *rotation.RotationJobConfigureRequest) (*rotation.RotationInfo, error) {
+	s.registerCalls++
+	if !s.rotationManagerRunning() {
+		return nil, errors.New("rotation manager is not initialized")
+	}
+	return &rotation.RotationInfo{
+		RotationID:        "test-rotation-id",
+		NextVaultRotation: time.Now().Add(time.Hour),
+	}, nil
+}
+
+func (s *replicationTestSystemView) DeregisterRotationJob(_ context.Context, _ *rotation.RotationJobDeregisterRequest) error {
+	s.deregisterCalls++
+	if !s.rotationManagerRunning() {
+		return errors.New("rotation manager is not initialized")
+	}
+	return nil
+}
+
+// getReplicationTestBackend returns a backend that acts as a cluster node with
+// the given replication state. Backends created with the same storage share
+// it, like the nodes of a cluster.
+func getReplicationTestBackend(tb testing.TB, storage logical.Storage, state consts.ReplicationState, localMount bool) (*tfBackend, *replicationTestSystemView) {
+	tb.Helper()
+
+	sysView := &replicationTestSystemView{
+		StaticSystemView: *logical.TestSystemView(),
+	}
+	sysView.ReplicationStateVal = state
+	sysView.LocalMountVal = localMount
+
+	config := logical.TestBackendConfig()
+	config.StorageView = storage
+	config.Logger = hclog.NewNullLogger()
+	config.System = sysView
+
+	b, err := Factory(context.Background(), config)
+	if err != nil {
+		tb.Fatal(err)
+	}
+
+	return b.(*tfBackend), sysView
 }
 
 var runAcceptanceTests = os.Getenv(envVarRunAccTests) == "1"

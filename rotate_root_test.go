@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/require"
 )
@@ -303,6 +304,47 @@ func TestRotateRoot_NotConfigured(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.True(t, resp.IsError())
+}
+
+// TestRotateRoot_ForwardedFromPerformanceReplicas verifies that rotate-root on a
+// performance standby or a performance secondary is forwarded to the active
+// node, without creating a token or changing the stored config on the replica.
+func TestRotateRoot_ForwardedFromPerformanceReplicas(t *testing.T) {
+	replicas := []struct {
+		name  string
+		state consts.ReplicationState
+	}{
+		{name: "performance standby", state: consts.ReplicationPerformanceStandby},
+		{name: "performance secondary", state: consts.ReplicationPerformanceSecondary},
+	}
+
+	for _, r := range replicas {
+		t.Run(r.name, func(t *testing.T) {
+			ctx := context.Background()
+			m := newMockTFE(t, "organizations", "my-org", "")
+			storage := new(logical.InmemStorage)
+
+			active, _ := getReplicationTestBackend(t, storage, 0, false)
+			writeRotationTestConfig(t, active, storage, m.server.URL)
+			before, err := storage.Get(ctx, configStoragePath)
+			require.NoError(t, err)
+
+			replica, _ := getReplicationTestBackend(t, storage, r.state, false)
+			resp, err := replica.HandleRequest(ctx, &logical.Request{
+				Operation: logical.UpdateOperation,
+				Path:      "rotate-root",
+				Storage:   storage,
+			})
+			require.ErrorIs(t, err, logical.ErrReadOnly,
+				"rotate-root must be forwarded to the active node, got response: %v", resp)
+			require.Nil(t, resp)
+			require.Empty(t, m.createBodies(), "the replica must not create a token")
+
+			after, err := storage.Get(ctx, configStoragePath)
+			require.NoError(t, err)
+			require.Equal(t, before, after, "the replica must not change the stored config")
+		})
+	}
 }
 
 func TestRotateRoot_SuccessLeavesNoWAL(t *testing.T) {

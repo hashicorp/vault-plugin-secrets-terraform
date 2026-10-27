@@ -6,8 +6,10 @@ package tfc
 import (
 	"context"
 	"fmt"
+	"maps"
 	"testing"
 
+	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/require"
 )
@@ -135,6 +137,138 @@ func TestConfig_TokenChangeRediscoversOwner(t *testing.T) {
 	require.Equal(t, tokenOwnerTypeTeam, cfg.TokenOwnerType)
 	require.Equal(t, "team-xyz789", cfg.OwnerID)
 	require.Equal(t, "at-team", cfg.TokenID)
+}
+
+// TestConfig_WritesForwardedFromPerformanceReplicas verifies that config writes
+// on a performance standby or a performance secondary are forwarded to the
+// active node instead of calling the Rotation Manager on the replica. Before
+// VAULT-51828, writes on a performance standby failed with "rotation manager is
+// not initialized". Writes on the active node, and on a local mount of a
+// performance secondary, are still handled locally.
+func TestConfig_WritesForwardedFromPerformanceReplicas(t *testing.T) {
+	nodes := []struct {
+		name       string
+		state      consts.ReplicationState
+		localMount bool
+		forwarded  bool
+	}{
+		{name: "active node"},
+		{name: "performance standby", state: consts.ReplicationPerformanceStandby, forwarded: true},
+		{name: "performance secondary", state: consts.ReplicationPerformanceSecondary, forwarded: true},
+		{name: "performance secondary local mount", state: consts.ReplicationPerformanceSecondary, localMount: true},
+	}
+
+	rotationPeriod := map[string]interface{}{"explicit_max_ttl": 3456000, "rotation_period": 2592000}
+	cases := []struct {
+		name string
+		op   logical.Operation
+		// stored is added to the config written before the request. nil means
+		// no config is stored.
+		stored map[string]interface{}
+		data   map[string]interface{}
+	}{
+		{name: "create without rotation fields", op: logical.CreateOperation},
+		{name: "create with rotation_period", op: logical.CreateOperation, data: rotationPeriod},
+		{name: "update without rotation fields", op: logical.UpdateOperation, stored: rotationPeriod},
+		{
+			name:   "update setting rotation_schedule",
+			op:     logical.UpdateOperation,
+			stored: map[string]interface{}{},
+			data:   map[string]interface{}{"rotation_schedule": "0 * * * *", "rotation_window": 3600},
+		},
+		{
+			name:   "update clearing rotation_period",
+			op:     logical.UpdateOperation,
+			stored: rotationPeriod,
+			data:   map[string]interface{}{"explicit_max_ttl": 0, "rotation_period": 0},
+		},
+		{
+			name:   "update disabling automated rotation",
+			op:     logical.UpdateOperation,
+			stored: rotationPeriod,
+			data:   map[string]interface{}{"disable_automated_rotation": true},
+		},
+	}
+
+	for _, n := range nodes {
+		for _, tc := range cases {
+			t.Run(n.name+"/"+tc.name, func(t *testing.T) {
+				ctx := context.Background()
+				m := newMockTFE(t, "organizations", "my-org", "")
+				storage := new(logical.InmemStorage)
+
+				if tc.stored != nil {
+					seed := map[string]interface{}{"token": "org-token", "address": m.server.URL}
+					maps.Copy(seed, tc.stored)
+					active, _ := getReplicationTestBackend(t, storage, 0, false)
+					require.NoError(t, testConfigCreate(t, active, storage, seed))
+				}
+				before, err := storage.Get(ctx, configStoragePath)
+				require.NoError(t, err)
+
+				data := map[string]interface{}{"address": m.server.URL}
+				if tc.op == logical.CreateOperation {
+					data["token"] = "org-token"
+				}
+				maps.Copy(data, tc.data)
+
+				node, sysView := getReplicationTestBackend(t, storage, n.state, n.localMount)
+				resp, err := node.HandleRequest(ctx, &logical.Request{
+					Operation: tc.op,
+					Path:      "config",
+					Storage:   storage,
+					Data:      data,
+				})
+
+				if !n.forwarded {
+					require.NoError(t, err)
+					if resp != nil {
+						require.False(t, resp.IsError(), "unexpected error response: %v", resp.Error())
+					}
+					require.Equal(t, 1, sysView.rotationManagerCalls(),
+						"the write must register or deregister the rotation job on this node")
+					return
+				}
+
+				require.ErrorIs(t, err, logical.ErrReadOnly,
+					"the write must be forwarded to the active node, got response: %v", resp)
+				require.Nil(t, resp)
+				require.Zero(t, sysView.rotationManagerCalls(),
+					"a forwarded write must not call the Rotation Manager on the replica")
+
+				after, err := storage.Get(ctx, configStoragePath)
+				require.NoError(t, err)
+				require.Equal(t, before, after, "a forwarded write must not change the stored config")
+			})
+		}
+	}
+}
+
+// TestConfig_ReadServedOnPerformanceStandby verifies that config reads are still
+// served by a performance standby rather than forwarded to the active node.
+func TestConfig_ReadServedOnPerformanceStandby(t *testing.T) {
+	m := newMockTFE(t, "organizations", "my-org", "")
+	storage := new(logical.InmemStorage)
+
+	active, _ := getReplicationTestBackend(t, storage, 0, false)
+	require.NoError(t, testConfigCreate(t, active, storage, map[string]interface{}{
+		"token":           "org-token",
+		"address":         m.server.URL,
+		"rotation_period": 2592000,
+	}))
+
+	standby, sysView := getReplicationTestBackend(t, storage, consts.ReplicationPerformanceStandby, false)
+	resp, err := standby.HandleRequest(context.Background(), &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "config",
+		Storage:   storage,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.False(t, resp.IsError(), "unexpected error response: %v", resp.Error())
+	require.Equal(t, m.server.URL, resp.Data["address"])
+	require.EqualValues(t, 2592000, resp.Data["rotation_period"])
+	require.Zero(t, sysView.rotationManagerCalls())
 }
 
 func testConfigDelete(t *testing.T, b logical.Backend, s logical.Storage) error {
