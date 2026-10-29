@@ -1,3 +1,10 @@
+## Unreleased
+
+BUG FIXES:
+* Forward `config` writes to the active node. Writes that reached a
+  performance standby, for example through a load balancer, failed with
+  `rotation manager is not initialized` (VAULT-51828)
+
 ## v0.15.1
 ### October 26, 2026
 

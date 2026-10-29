@@ -86,13 +86,17 @@ func pathConfig(b *tfBackend) *framework.Path {
 				},
 			},
 			logical.CreateOperation: &framework.PathOperation{
-				Callback: b.pathConfigWrite,
+				Callback:                    b.pathConfigWrite,
+				ForwardPerformanceStandby:   true,
+				ForwardPerformanceSecondary: true,
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationVerb: "configure",
 				},
 			},
 			logical.UpdateOperation: &framework.PathOperation{
-				Callback: b.pathConfigWrite,
+				Callback:                    b.pathConfigWrite,
+				ForwardPerformanceStandby:   true,
+				ForwardPerformanceSecondary: true,
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationVerb: "configure",
 				},
