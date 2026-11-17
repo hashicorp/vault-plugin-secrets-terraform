@@ -139,6 +139,8 @@ To run the acceptance tests, invoke `make testacc`:
 $ make testacc
 ```
 
+The GitHub Actions acceptance workflow also runs `make testacc` on every push.
+
 The tests assume environment variables are set to use in order to perform the
 integration tests. Be sure to use appropriate values and be aware that real
 tokens will be created and destroyed in the course of running the tests.
